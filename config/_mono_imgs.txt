@@ -1,0 +1,15 @@
+jacket/Font	562	https://aws-static-webp.kutetailor.com/comm/process/EMB/165663955041970.jpg
+jacket/Font	563	https://aws-static-webp.kutetailor.com/comm/process/EMB/165663956414866.jpg
+jacket/Font	564	https://aws-static-webp.kutetailor.com/comm/process/EMB/165663957476098.jpg
+jacket/Font	565	https://aws-static-webp.kutetailor.com/comm/process/EMB/165663958410612.jpg
+jacket/Font	836	https://aws-static-webp.kutetailor.com/comm/process/EMB/165663960951919.jpg
+jacket/Font	838	https://aws-static-webp.kutetailor.com/comm/process/EMB/168249471729925.jpg
+jacket/Color	3490	https://aws-static-webp.kutetailor.com/comm/process/EMB/165812289098730.jpg
+pants/Font	562	https://aws-static-webp.kutetailor.com/comm/process/EMB/165663970720228.jpg
+pants/Font	563	https://aws-static-webp.kutetailor.com/comm/process/EMB/165663971542000.jpg
+pants/Font	564	https://aws-static-webp.kutetailor.com/comm/process/EMB/165663972481803.jpg
+pants/Font	565	https://aws-static-webp.kutetailor.com/comm/process/EMB/165663973606366.jpg
+pants/Font	836	https://aws-static-webp.kutetailor.com/comm/process/EMB/165663975664859.jpg
+pants/Font	837	https://aws-static-webp.kutetailor.com/comm/process/EMB/168241565381201.jpg
+pants/Font	838	https://aws-static-webp.kutetailor.com/comm/process/EMB/168985474828031.png
+pants/Color	3490	https://aws-static-webp.kutetailor.com/comm/process/EMB/165812331483907.jpg

@@ -1,0 +1,492 @@
+[
+ {
+  "code": "",
+  "name": "Lining",
+  "path": "Jacket > Lining",
+  "image": null,
+  "price": null
+ },
+ {
+  "code": null,
+  "name": "Lining Style",
+  "path": "Jacket > Lining > Lining Style",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/176820853912865.png",
+  "price": null
+ },
+ {
+  "code": "AAQL",
+  "name": "Full",
+  "path": "Jacket > Lining > Lining Style > Full",
+  "image": "https://aws-static-webp.kutetailor.com/comm/banner/165546069616063.jpeg",
+  "price": null
+ },
+ {
+  "code": "AA2Y",
+  "name": "1/2 lining with piping",
+  "path": "Jacket > Lining > Lining Style > 1/2 lining with piping",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/165871602215696.jpeg",
+  "price": null
+ },
+ {
+  "code": "AA2Z",
+  "name": "1/2 lining with inner pic stitch",
+  "path": "Jacket > Lining > Lining Style > 1/2 lining with inner pic stitch",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/165871602936141.jpeg",
+  "price": null
+ },
+ {
+  "code": "AA3Y",
+  "name": "1/3 lining with piping",
+  "path": "Jacket > Lining > Lining Style > 1/3 lining with piping",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/165871603771914.jpeg",
+  "price": null
+ },
+ {
+  "code": "AA3Z",
+  "name": "1/3  lining with inner pic stitch",
+  "path": "Jacket > Lining > Lining Style > 1/3  lining with inner pic stitch",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/165871604491810.jpeg",
+  "price": null
+ },
+ {
+  "code": "AA4Y",
+  "name": "1/4 lining with piping",
+  "path": "Jacket > Lining > Lining Style > 1/4 lining with piping",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/165871606278049.jpeg",
+  "price": null
+ },
+ {
+  "code": "AA4Z",
+  "name": "1/4 lining with inner pic stitch",
+  "path": "Jacket > Lining > Lining Style > 1/4 lining with inner pic stitch",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/165871607280798.jpeg",
+  "price": null
+ },
+ {
+  "code": "AAYY",
+  "name": "Only sleeve lining with piping",
+  "path": "Jacket > Lining > Lining Style > Only sleeve lining with piping",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/166529651892133.jpg",
+  "price": null
+ },
+ {
+  "code": "AAYZ",
+  "name": "Only sleeve lining with pic stitch",
+  "path": "Jacket > Lining > Lining Style > Only sleeve lining with pic stitch",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/166529654416957.jpg",
+  "price": null
+ },
+ {
+  "code": "AAWY",
+  "name": "No lining with piping",
+  "path": "Jacket > Lining > Lining Style > No lining with piping",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/166529656337316.jpg",
+  "price": null
+ },
+ {
+  "code": "AAWZ",
+  "name": "No lining with pic stitch",
+  "path": "Jacket > Lining > Lining Style > No lining with pic stitch",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/166529657699258.jpg",
+  "price": null
+ },
+ {
+  "code": "AAXZ",
+  "name": "R & d no. 1 1/4 lining with piping",
+  "path": "Jacket > Lining > Lining Style > R & d no. 1 1/4 lining with piping",
+  "image": null,
+  "price": null
+ },
+ {
+  "code": null,
+  "name": "Facing",
+  "path": "Jacket > Lining > Facing",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/176820855567178.png",
+  "price": null
+ },
+ {
+  "code": "0701",
+  "name": "Inner facing A",
+  "path": "Jacket > Lining > Facing > Inner facing A",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/0701.jpeg",
+  "price": null
+ },
+ {
+  "code": "0701,0852",
+  "name": "Straight with edge",
+  "path": "Jacket > Lining > Facing > Straight with edge",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/165871613072266.jpeg",
+  "price": null
+ },
+ {
+  "code": "0702",
+  "name": "Inner facing B",
+  "path": "Jacket > Lining > Facing > Inner facing B",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/167272729924594.jpeg",
+  "price": null
+ },
+ {
+  "code": "0702,0852",
+  "name": "Curved with edge",
+  "path": "Jacket > Lining > Facing > Curved with edge",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/165871613899733.jpeg",
+  "price": null
+ },
+ {
+  "code": "0866,0706",
+  "name": "Inner facing F\twith edge",
+  "path": "Jacket > Lining > Facing > Inner facing F\twith edge",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/168618629590235.jpeg",
+  "price": null
+ },
+ {
+  "code": "0703",
+  "name": "Straight with contrast, facing C",
+  "path": "Jacket > Lining > Facing > Straight with contrast, facing C",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/168120688798950.jpg",
+  "price": null
+ },
+ {
+  "code": "0761",
+  "name": "R & D #1 Curved facing(1/3 or 1/4 lining)",
+  "path": "Jacket > Lining > Facing > R & D #1 Curved facing(1/3 or 1/4 lining)",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/174502624763903.png",
+  "price": null
+ },
+ {
+  "code": "0791",
+  "name": "Italian casual curved facing",
+  "path": "Jacket > Lining > Facing > Italian casual curved facing",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/173717318945584.png",
+  "price": null
+ },
+ {
+  "code": null,
+  "name": "Body lining",
+  "path": "Jacket > Lining > Body lining",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/176820857233521.png",
+  "price": null
+ },
+ {
+  "code": "0714",
+  "name": "Regular Lining",
+  "path": "Jacket > Lining > Body lining > Regular Lining",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/176525094058726.png",
+  "price": null
+ },
+ {
+  "code": "0711",
+  "name": "Match fabric",
+  "path": "Jacket > Lining > Body lining > Regular Lining > Match fabric",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/176525097862404.webp",
+  "price": null
+ },
+ {
+  "code": "072D",
+  "name": "Artistic Lining(Placement)",
+  "path": "Jacket > Lining > Body lining > Artistic Lining(Placement)",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/176525130501051.png",
+  "price": null
+ },
+ {
+  "code": "072N",
+  "name": "Artistic Lining(Recycled)",
+  "path": "Jacket > Lining > Body lining > Artistic Lining(Recycled)",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/176525132479897.png",
+  "price": null
+ },
+ {
+  "code": "072D",
+  "name": "Appointed DIY Printing-",
+  "path": "Jacket > Lining > Body lining > Appointed DIY Printing-",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/176654507543327.png",
+  "price": null
+ },
+ {
+  "code": null,
+  "name": "Piping",
+  "path": "Jacket > Lining > Piping",
+  "image": null,
+  "price": null
+ },
+ {
+  "code": "085F",
+  "name": "Customer appointed piping",
+  "path": "Jacket > Lining > Piping > Customer appointed piping",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/168120645267255.jpg",
+  "price": null
+ },
+ {
+  "code": "0853",
+  "name": "Piping of inner facing customer appointed-",
+  "path": "Jacket > Lining > Piping > Piping of inner facing customer appointed-",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/169545956994816.jpeg",
+  "price": null
+ },
+ {
+  "code": null,
+  "name": "Sweat pad",
+  "path": "Jacket > Lining > Sweat pad",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/176820859076876.png",
+  "price": null
+ },
+ {
+  "code": "074G",
+  "name": "No",
+  "path": "Jacket > Lining > Sweat pad > No",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/074G.jpeg",
+  "price": null
+ },
+ {
+  "code": "0742",
+  "name": "Triangle shape",
+  "path": "Jacket > Lining > Sweat pad > Triangle shape",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/0742.jpeg",
+  "price": null
+ },
+ {
+  "code": "0745",
+  "name": "Round shape",
+  "path": "Jacket > Lining > Sweat pad > Round shape",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/0745.jpeg",
+  "price": null
+ },
+ {
+  "code": "0747",
+  "name": "Round shape(fabric)",
+  "path": "Jacket > Lining > Sweat pad > Round shape(fabric)",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/0747.jpeg",
+  "price": null
+ },
+ {
+  "code": "0750",
+  "name": "U shape",
+  "path": "Jacket > Lining > Sweat pad > U shape",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/0750.jpeg",
+  "price": null
+ },
+ {
+  "code": "0752",
+  "name": "U shape(fabric)",
+  "path": "Jacket > Lining > Sweat pad > U shape(fabric)",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/0752.jpeg",
+  "price": null
+ },
+ {
+  "code": null,
+  "name": "Sleeve lining",
+  "path": "Jacket > Lining > Sleeve lining",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/176820878370940.png",
+  "price": null
+ },
+ {
+  "code": "0724",
+  "name": "Regular Lining",
+  "path": "Jacket > Lining > Sleeve lining > Regular Lining",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/0724.jpeg",
+  "price": null
+ },
+ {
+  "code": "0723",
+  "name": "White stripe sleeve lining",
+  "path": "Jacket > Lining > Sleeve lining > Regular Lining > White stripe sleeve lining",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/0723.jpeg",
+  "price": null
+ },
+ {
+  "code": "0721",
+  "name": "Match body lining color",
+  "path": "Jacket > Lining > Sleeve lining > Regular Lining > Match body lining color",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/0721.jpeg",
+  "price": null
+ },
+ {
+  "code": "072P",
+  "name": "Sleeve lining match the main fabric",
+  "path": "Jacket > Lining > Sleeve lining > Regular Lining > Sleeve lining match the main fabric",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/176103044934035.jpeg",
+  "price": null
+ },
+ {
+  "code": "072M",
+  "name": "Artistic Lining",
+  "path": "Jacket > Lining > Sleeve lining > Artistic Lining",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/168632196063560.jpg",
+  "price": null
+ },
+ {
+  "code": "072M",
+  "name": "Appointed sleeve DIY Printing-",
+  "path": "Jacket > Lining > Sleeve lining > Appointed sleeve DIY Printing-",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/168120638712240.jpg",
+  "price": null
+ },
+ {
+  "code": "08C3",
+  "name": "handmade lining central back seam",
+  "path": "Jacket > Other > Handmade option > handmade lining central back seam",
+  "image": null,
+  "price": null
+ },
+ {
+  "code": "0495",
+  "name": "The process of making name card pocket with large pattern lining material, and customers accept the effect of pattern damage",
+  "path": "Jacket > Other > Others > The process of making name card pocket with large pattern lining material, and customers accept the effect of pattern damage",
+  "image": null,
+  "price": null
+ },
+ {
+  "code": "05V6",
+  "name": "No lining/piping/Normal straight bottom",
+  "path": "Jacket > Other > Others > No lining/piping/Normal straight bottom",
+  "image": null,
+  "price": null
+ },
+ {
+  "code": null,
+  "name": "Lining - Lining Style",
+  "path": "Pants > Style > Lining - Lining Style",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/176827220873603.png",
+  "price": null
+ },
+ {
+  "code": "3500",
+  "name": "No",
+  "path": "Pants > Style > Lining - Lining Style > No",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/3500.jpeg",
+  "price": null
+ },
+ {
+  "code": "3502",
+  "name": "Front half, pocket inside",
+  "path": "Pants > Style > Lining - Lining Style > Front half, pocket inside",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/3502.jpeg",
+  "price": null
+ },
+ {
+  "code": "3504",
+  "name": "Front&back half, pocket inside",
+  "path": "Pants > Style > Lining - Lining Style > Front&back half, pocket inside",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/3504.jpeg",
+  "price": null
+ },
+ {
+  "code": "3506",
+  "name": "Front&back full, pocket inside",
+  "path": "Pants > Style > Lining - Lining Style > Front&back full, pocket inside",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/3506.jpeg",
+  "price": null
+ },
+ {
+  "code": "3501",
+  "name": "Front half, pocket outside",
+  "path": "Pants > Style > Lining - Lining Style > Front half, pocket outside",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/3501.jpeg",
+  "price": null
+ },
+ {
+  "code": "3503",
+  "name": "Front&back half\uff0cpocket outside ",
+  "path": "Pants > Style > Lining - Lining Style > Front&back half\uff0cpocket outside ",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/3503.jpeg",
+  "price": null
+ },
+ {
+  "code": "3505",
+  "name": "Front&back fulll, pocket outside",
+  "path": "Pants > Style > Lining - Lining Style > Front&back fulll, pocket outside",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/3505.jpeg",
+  "price": null
+ },
+ {
+  "code": null,
+  "name": "Lining - Lining  material",
+  "path": "Pants > Style > Lining - Lining  material",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/176827221539377.png",
+  "price": null
+ },
+ {
+  "code": "350D",
+  "name": "Appointed pant lining",
+  "path": "Pants > Style > Lining - Lining  material > Appointed pant lining",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/166822168843998.jpeg",
+  "price": null
+ },
+ {
+  "code": "350V",
+  "name": "Customer specified stretch pants-FLL606-TL-72(Dark color)",
+  "path": "Pants > Style > Lining - Lining  material > Customer specified stretch pants-FLL606-TL-72(Dark color)",
+  "image": null,
+  "price": null
+ },
+ {
+  "code": null,
+  "name": "Lining - Back crotch",
+  "path": "Pants > Style > Lining - Back crotch",
+  "image": null,
+  "price": null
+ },
+ {
+  "code": "3514",
+  "name": "No",
+  "path": "Pants > Style > Lining - Back crotch > No",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/165396701246859.jpeg",
+  "price": null
+ },
+ {
+  "code": "3515",
+  "name": "Fabric",
+  "path": "Pants > Style > Lining - Back crotch > Fabric",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/165396711124919.jpeg",
+  "price": null
+ },
+ {
+  "code": "3518",
+  "name": "Matched lining",
+  "path": "Pants > Style > Lining - Back crotch > Matched lining",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/165396716037322.jpeg",
+  "price": null
+ },
+ {
+  "code": "3516",
+  "name": "Lining",
+  "path": "Pants > Style > Lining - Back crotch > Lining",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/165396714492932.jpeg",
+  "price": null
+ },
+ {
+  "code": null,
+  "name": "Lining - Pocket",
+  "path": "Pants > Style > Lining - Pocket",
+  "image": null,
+  "price": null
+ },
+ {
+  "code": "35C1",
+  "name": "Appointed pocket lining-",
+  "path": "Pants > Style > Lining - Pocket > Appointed pocket lining-",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/35C1.jpeg",
+  "price": null
+ },
+ {
+  "code": "344E",
+  "name": "Appointed-Lining",
+  "path": "Pants > Waist > Inner Face > Appointed-Lining",
+  "image": "https://aws-static-webp.kutetailor.com/comm/process/craft/344E.jpeg",
+  "price": null
+ },
+ {
+  "code": "39W1",
+  "name": "Adding silk lining on back cortch seam \uff08When the fabric doesn't stick, it will be treated as invalid information\uff09",
+  "path": "Pants > Other > Others > Adding silk lining on back cortch seam \uff08When the fabric doesn't stick, it will be treated as invalid information\uff09",
+  "image": null,
+  "price": null
+ },
+ {
+  "code": "371F",
+  "name": "Confirmed strentch fabric with pant lining",
+  "path": "Pants > Other > Others > Confirmed strentch fabric with pant lining",
+  "image": null,
+  "price": null
+ }
+]

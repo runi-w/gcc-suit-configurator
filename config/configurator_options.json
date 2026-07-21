@@ -1,0 +1,347 @@
+{
+  "lapel": [
+    {
+      "label": "Notch",
+      "code": "0001",
+      "name": "Notch",
+      "image": "img/0001.jpeg"
+    },
+    {
+      "label": "Peak",
+      "code": "0002",
+      "name": "Peak",
+      "image": "img/0002.jpeg"
+    },
+    {
+      "label": "Shawl",
+      "code": "0005",
+      "name": "Shawl",
+      "image": "img/0005.jpeg"
+    },
+    {
+      "label": "Semi-notch",
+      "code": "0003",
+      "name": "Semi-notch",
+      "image": "img/0003.jpeg"
+    },
+    {
+      "label": "Semi-peak",
+      "code": "0004",
+      "name": "Semi-peak",
+      "image": "img/0004.jpeg"
+    }
+  ],
+  "chestPocket": [
+    {
+      "label": "Welt",
+      "code": "0101",
+      "name": "Welt (normal)",
+      "image": "img/0101.jpeg"
+    },
+    {
+      "label": "Patch",
+      "code": "0150",
+      "name": "Patch",
+      "image": "img/0150.jpeg"
+    },
+    {
+      "label": "Besom",
+      "code": "0110",
+      "name": "Besom",
+      "image": "img/0110.jpeg"
+    }
+  ],
+  "lowerPocket": [
+    {
+      "label": "Flap",
+      "code": "0201",
+      "name": "Flap (regular)",
+      "image": "img/0201.jpeg"
+    },
+    {
+      "label": "Besom / jetted",
+      "code": "0231",
+      "name": "Besom",
+      "image": "img/0231.jpeg"
+    },
+    {
+      "label": "Patch",
+      "code": "02J1",
+      "name": "Patch",
+      "image": "img/02J1.jpeg"
+    },
+    {
+      "label": "Slanted",
+      "code": "02A1",
+      "name": "Regular slanted",
+      "image": "img/02A1.jpeg"
+    }
+  ],
+  "vent": [
+    {
+      "label": "Side vents",
+      "code": "04N2",
+      "name": "Side",
+      "image": "img/04N2.jpeg"
+    },
+    {
+      "label": "Center vent",
+      "code": "04N1",
+      "name": "Central",
+      "image": "img/04N1.jpeg"
+    },
+    {
+      "label": "No vent",
+      "code": "04N0",
+      "name": "No vent",
+      "image": "img/04N0.jpeg"
+    }
+  ],
+  "buttons": [
+    {
+      "label": "Black horn",
+      "code": "KSZ257",
+      "color": "Black",
+      "image": "img/swatches/buttons_full/KSZ257.png"
+    },
+    {
+      "label": "Dark navy",
+      "code": "KB011",
+      "color": "Navy",
+      "image": "img/swatches/buttons_full/KB011.png"
+    },
+    {
+      "label": "Coffee horn",
+      "code": "KSZ255",
+      "color": "Coffee",
+      "image": "img/swatches/buttons_full/KSZ255.png"
+    },
+    {
+      "label": "Brown nut",
+      "code": "KG108",
+      "color": "Coffee",
+      "image": "img/swatches/buttons_full/KG108.png"
+    },
+    {
+      "label": "Grey",
+      "code": "KB115",
+      "color": "Gray",
+      "image": "img/swatches/buttons_full/KB115.png"
+    },
+    {
+      "label": "Charcoal",
+      "code": "KSZ256",
+      "color": "White",
+      "image": "img/swatches/buttons_full/KSZ256.png"
+    },
+    {
+      "label": "GCC signature",
+      "code": "KYKARUA01",
+      "color": "",
+      "image": "img/swatches/buttons_full/KYKARUA01.png"
+    },
+    {
+      "label": "GCC signature II",
+      "code": "KYKARUA03",
+      "color": "",
+      "image": "img/swatches/buttons_full/KYKARUA03.png"
+    }
+  ],
+  "linings": [
+    {
+      "label": "Navy",
+      "code": "FLLYH125",
+      "color": "Navy",
+      "image": "img/swatches/lining_full/FLLYH125.JPG"
+    },
+    {
+      "label": "Blue",
+      "code": "FLLYH121",
+      "color": "Blue",
+      "image": "img/swatches/lining_full/FLLYH121.JPG"
+    },
+    {
+      "label": "Black",
+      "code": "FLLYH091",
+      "color": "Black",
+      "image": "img/swatches/lining_full/FLLYH091.jpg"
+    },
+    {
+      "label": "Gray",
+      "code": "FLLYH131",
+      "color": "Gray",
+      "image": "img/swatches/lining_full/FLLYH131.JPG"
+    },
+    {
+      "label": "Red",
+      "code": "FLLYH142",
+      "color": "Red",
+      "image": "img/swatches/lining_full/FLLYH142.JPG"
+    },
+    {
+      "label": "Green",
+      "code": "FLLYH140",
+      "color": "Green",
+      "image": "img/swatches/lining_full/FLLYH140.JPG"
+    },
+    {
+      "label": "Purple",
+      "code": "FLLYH003",
+      "color": "Purple",
+      "image": "img/swatches/lining_full/FLLYH003.jpg"
+    },
+    {
+      "label": "Brown",
+      "code": "JFLL621-4927",
+      "color": "Brown",
+      "image": "img/swatches/lining_full/JFLL621-4927.JPG"
+    },
+    {
+      "label": "Pink",
+      "code": "JFLLF502-213",
+      "color": "Pink",
+      "image": "img/swatches/lining_full/JFLLF502-213.JPG"
+    },
+    {
+      "label": "Orange",
+      "code": "FLL107-522",
+      "color": "Orange",
+      "image": "img/swatches/lining_full/FLL107-522.JPG"
+    },
+    {
+      "label": "Khaki",
+      "code": "JFLLF502-210",
+      "color": "Khaki",
+      "image": "img/swatches/lining_full/JFLLF502-210.JPG"
+    },
+    {
+      "label": "Olive green",
+      "code": "FLL6220Z-1018",
+      "color": "Olive green",
+      "image": "img/swatches/lining_full/FLL6220Z-1018.JPG"
+    }
+  ],
+  "monogram": {
+    "thread": [
+      {
+        "name": "White",
+        "code": "6000"
+      },
+      {
+        "name": "Blackish Green",
+        "code": "3488"
+      },
+      {
+        "name": "Silvery Grey",
+        "code": "6001"
+      },
+      {
+        "name": "Navy Blue",
+        "code": "3552"
+      },
+      {
+        "name": "Dark Blue",
+        "code": "6006"
+      },
+      {
+        "name": "Dark Grey",
+        "code": "1751"
+      },
+      {
+        "name": "Wine Red",
+        "code": "6028"
+      },
+      {
+        "name": "Gold",
+        "code": "3490"
+      },
+      {
+        "name": "Silver",
+        "code": "3491"
+      },
+      {
+        "name": "Dark Green",
+        "code": "6026"
+      }
+    ],
+    "fonts": [
+      {
+        "name": "Calligraphy",
+        "code": "562",
+        "image": "img/monogram/jacket/Font/562.jpg"
+      },
+      {
+        "name": "Times Roman",
+        "code": "563",
+        "image": "img/monogram/jacket/Font/563.jpg"
+      },
+      {
+        "name": "Block",
+        "code": "564",
+        "image": "img/monogram/jacket/Font/564.jpg"
+      },
+      {
+        "name": "Script",
+        "code": "565",
+        "image": "img/monogram/jacket/Font/565.jpg"
+      },
+      {
+        "name": "Bradley",
+        "code": "566",
+        "image": null
+      },
+      {
+        "name": "Bank Gothic Light BT",
+        "code": "836",
+        "image": "img/monogram/jacket/Font/836.jpg"
+      },
+      {
+        "name": "Book script",
+        "code": "837",
+        "image": null
+      },
+      {
+        "name": "Old English",
+        "code": "838",
+        "image": "img/monogram/jacket/Font/838.jpg"
+      },
+      {
+        "name": "Gradl",
+        "code": "839",
+        "image": null
+      },
+      {
+        "name": "RC10",
+        "code": "4771",
+        "image": null
+      },
+      {
+        "name": "RC11",
+        "code": "4772",
+        "image": null
+      }
+    ],
+    "positions": [
+      {
+        "name": "In fabric, upon left inner pocket",
+        "code": "936"
+      },
+      {
+        "name": "Collar felt",
+        "code": "550"
+      },
+      {
+        "name": "In fabric, upon right inner pocket",
+        "code": "938"
+      },
+      {
+        "name": "Name label, 2cm upon left inner pocket",
+        "code": "549,0873"
+      },
+      {
+        "name": "In linning, upon left inner pocket",
+        "code": "937"
+      }
+    ]
+  }
+}

@@ -1,0 +1,441 @@
+#!/usr/bin/env python3
+"""Gage Court — Suit Configurator v0. Guided picker in front of the normal-warp compositor.
+Fabric + Style + Lapel drive the live preview; buttons/lining/pockets/monogram feed the KuteTailor
+order spec + indicative price. Self-contained (data-URIs). Reuses the validated compositor."""
+import base64, io, json, os
+from PIL import Image
+
+HM = "/Users/runiwillner/Desktop/GCC_House_Model"
+ROOT = "/Users/runiwillner/Desktop/GCC_Fabric_Handoff"
+CFG = f"{HM}/config"
+OUT = "/private/tmp/claude-501/-Users-runiwillner/56ab0edc-7dd6-43c2-84c4-01a9de10c0b3/scratchpad/configurator-v0.html"
+AN = "/private/tmp/claude-501/-Users-runiwillner/56ab0edc-7dd6-43c2-84c4-01a9de10c0b3/scratchpad/fabric_analysis.json"
+W = 470
+
+CUTS = [
+    ("notch", "front_2button_notch", True), ("peak", "front_2button_peak", True),
+    ("one", "front_1button_peak", True), ("db", "front_doublebreasted", False),
+    ("three", "front_3piece_vest", False),
+]
+# fabric: code, name, kind, indicative upcharge $
+FABRICS = [
+    ("DBP686A", "Midnight Navy", "solid", 0), ("DBP660A", "Charcoal Grey", "solid", 0),
+    ("DBP751A", "Light Grey", "solid", 0), ("DBP754A", "Deep Navy", "solid", 0),
+    ("DBP665A", "Forest Green", "solid", 0), ("DBQ794A", "Jet Black", "solid", 0),
+    ("DBQ786A", "Grey Melange", "solid", 0),
+    ("DBS158A", "Grey Glen Check", "pattern", 100), ("DBR230A", "Taupe Glen Plaid", "pattern", 100),
+    ("DBS153A", "Navy Windowpane", "pattern", 100),
+]
+DENSITY = {"DBS153A": 3.5, "DBS158A": 4.6, "DBR230A": 3.0}
+
+def datauri(img, fmt, **kw):
+    b = io.BytesIO(); img.save(b, fmt, **kw)
+    return f"data:image/{'jpeg' if fmt=='JPEG' else 'png'};base64," + base64.b64encode(b.getvalue()).decode()
+
+def file_datauri(path, box=120):
+    if not path or not os.path.exists(path): return None
+    im = Image.open(path).convert("RGB"); im.thumbnail((box, box), Image.LANCZOS)
+    return datauri(im, "JPEG", quality=84, optimize=True)
+
+def seamless_tile(path, size=132):
+    im = Image.open(path).convert("RGB"); s = int(min(im.size) * 0.52)
+    cx, cy = im.width // 2, im.height // 2
+    c = im.crop((cx - s//2, cy - s//2, cx + s//2, cy + s//2)).resize((size//2, size//2), Image.LANCZOS)
+    n = size//2; t = Image.new("RGB", (size, size))
+    t.paste(c, (0, 0)); t.paste(c.transpose(Image.FLIP_LEFT_RIGHT), (n, 0))
+    t.paste(c.transpose(Image.FLIP_TOP_BOTTOM), (0, n))
+    t.paste(c.transpose(Image.FLIP_LEFT_RIGHT).transpose(Image.FLIP_TOP_BOTTOM), (n, n))
+    return t
+
+cuts = []; H = None
+for cid, fn, openf in CUTS:
+    la = Image.open(f"{HM}/drape_maps/{fn}_drape.png")
+    if H is None: H = int(W * la.height / la.width)
+    L, A = la.split()
+    ub = datauri(Image.open(f"{HM}/renders/{fn}.png").convert("RGB").resize((W, H), Image.LANCZOS), "JPEG", quality=82, optimize=True)
+    ud = datauri(L.resize((W, H), Image.LANCZOS).convert("L"), "JPEG", quality=86, optimize=True)
+    um = datauri(A.resize((W, H), Image.LANCZOS).convert("L"), "PNG", optimize=True)
+    nrm = Image.open(f"{HM}/drape_maps/{fn}_normal.png").convert("RGB").resize((W, H), Image.LANCZOS)
+    un = datauri(nrm, "PNG", optimize=True)
+    cuts.append({"id": cid, "base": ub, "drape": ud, "mask": um, "normal": un, "openFront": openf})
+
+ANALYSIS = {}
+if os.path.exists(AN):
+    for r in json.load(open(AN)): ANALYSIS[r["code"]] = {"undertone": r["undertone"], "Lab": r["Lab"]}
+fabs = []
+for code, name, kind, up in FABRICS:
+    p = f"{ROOT}/prestige_swatches/{code}.jpg"
+    if not os.path.exists(p): continue
+    fab = {"code": code, "name": name, "kind": kind, "up": up, "tile": datauri(seamless_tile(p), "JPEG", quality=88, optimize=True)}
+    if code in DENSITY: fab["density"] = DENSITY[code]
+    if code in ANALYSIS: fab.update(ANALYSIS[code])
+    fabs.append(fab)
+
+# curated option set — embed images as data URIs
+OPTS = json.load(open(f"{CFG}/configurator_options.json"))
+def embed(items, box=120):
+    for it in items:
+        if it.get("image"):
+            it["img"] = file_datauri(os.path.join(CFG, it["image"]) if not os.path.isabs(it["image"]) else it["image"], box)
+        it.pop("image", None)
+    return items
+for k in ("lapel", "chestPocket", "lowerPocket", "vent", "buttons", "linings"):
+    OPTS[k] = embed(OPTS.get(k, []))
+OPTS["monogram"]["fonts"] = embed(OPTS["monogram"].get("fonts", []), 160)
+
+print(f"{len(cuts)} cuts, {len(fabs)} fabrics; options:",
+      {k: (len(v) if isinstance(v, list) else {kk: len(vv) for kk, vv in v.items()}) for k, v in OPTS.items()})
+
+HTML = r"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gage Court — Design your suit</title>
+<style>
+ :root{--ground:#efeae0;--panel:#fbf8f1;--panel2:#f3eee3;--ink:#211f1a;--soft:#5c574c;--faint:#928c7d;
+   --hair:#e2dccc;--hair2:#cdc4af;--brass:#9a7736;--brassd:#7d5f26;--stage:#eae5da;--stage2:#ded8ca;--good:#4f7a4d;
+   --serif:"Hoefler Text",Baskerville,Garamond,"Times New Roman",serif;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+ @media(prefers-color-scheme:dark){:root{--ground:#141317;--panel:#1e1d23;--panel2:#26242c;--ink:#ece6da;--soft:#b3ab9c;--faint:#7c7566;--hair:#2f2c36;--hair2:#403c48;--brass:#c6a25a;--brassd:#a9863f;--stage:#2a2830;--stage2:#1b1a21;--good:#79ad76;}}
+ *{box-sizing:border-box}body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.5}
+ .wrap{max-width:1180px;margin:0 auto;padding:clamp(14px,2.4vw,28px)}
+ header{border-bottom:1px solid var(--hair);padding-bottom:14px;margin-bottom:18px}
+ .eyebrow{font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--brass);font-weight:600}
+ h1{font-family:var(--serif);font-weight:500;margin:5px 0 4px;font-size:clamp(22px,3.2vw,31px)}
+ header p{margin:0;color:var(--soft);font-size:13.5px;max-width:72ch}
+ .layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:clamp(14px,2vw,26px);align-items:start}
+ @media(max-width:900px){.layout{grid-template-columns:1fr}}
+ .stage{position:sticky;top:14px;background:radial-gradient(120% 80% at 50% 6%,var(--stage),var(--stage2));border:1px solid var(--hair);border-radius:14px;padding:10px;display:flex;flex-direction:column;align-items:center;gap:8px}
+ canvas.hero{width:auto;height:min(62vh,620px);max-width:100%;border-radius:8px}
+ .tag{align-self:flex-start;padding:2px 4px}
+ .tag b{font-family:var(--serif);font-size:16px}.tag small{display:block;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--faint)}
+ .approx{font-size:11px;color:var(--brassd);min-height:14px}
+ .panel{display:flex;flex-direction:column;gap:4px}
+ section.grp{border-bottom:1px solid var(--hair);padding:12px 0}
+ .grp>.hd{display:flex;justify-content:space-between;align-items:baseline;cursor:pointer;user-select:none}
+ .grp .step{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);font-weight:700}
+ .grp .val{font-family:var(--serif);font-size:14px;color:var(--ink)}
+ .grp .bd{margin-top:11px}
+ .segs{display:flex;gap:6px;flex-wrap:wrap}
+ .seg{cursor:pointer;font-size:12.5px;color:var(--soft);background:var(--panel);border:1px solid var(--hair2);border-radius:999px;padding:7px 12px;transition:.12s}
+ .seg:hover{border-color:var(--brass);color:var(--ink)}
+ .seg[aria-pressed=true]{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+ .swgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+ .sw{aspect-ratio:1;border-radius:7px;border:1px solid var(--hair2);cursor:pointer;padding:0;background-size:cover;background-position:center;transition:.12s;position:relative}
+ .sw:hover{transform:translateY(-2px)}
+ .sw[aria-pressed=true]{box-shadow:0 0 0 2px var(--brass);border-color:var(--brass)}
+ .optgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+ .opt{cursor:pointer;border:1px solid var(--hair2);border-radius:9px;padding:6px;background:var(--panel);text-align:center;font-size:11px;color:var(--soft);transition:.12s}
+ .opt:hover{border-color:var(--brass)}.opt[aria-pressed=true]{border-color:var(--brass);box-shadow:0 0 0 1px var(--brass);color:var(--ink)}
+ .opt img{width:100%;height:46px;object-fit:contain;border-radius:5px;background:#fff;margin-bottom:4px}
+ .opt .nm{display:block;line-height:1.25}
+ .spec{font-size:11px;color:var(--faint);margin-top:8px}
+ .mono-fields{display:flex;flex-direction:column;gap:9px;margin-top:10px}
+ .mono-fields.off{display:none}
+ .fld label{font-size:11px;color:var(--faint);display:block;margin-bottom:3px}
+ .fld input[type=text]{width:100%;font:inherit;font-size:13px;padding:7px 9px;border:1px solid var(--hair2);border-radius:7px;background:var(--panel);color:var(--ink)}
+ .toggle{display:flex;align-items:center;gap:10px;cursor:pointer}
+ .toggle .sw2{width:36px;height:21px;border-radius:999px;background:var(--hair2);position:relative;flex:none;transition:.15s}
+ .toggle[aria-pressed=true] .sw2{background:var(--brass)}
+ .toggle .sw2::after{content:"";position:absolute;top:2.5px;left:2.5px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.15s}
+ .toggle[aria-pressed=true] .sw2::after{left:17.5px}
+ .summary{position:sticky;bottom:0;margin-top:8px;background:var(--panel2);border:1px solid var(--hair);border-radius:12px;padding:14px 16px}
+ .summary .row{display:flex;justify-content:space-between;font-size:12.5px;padding:2px 0;color:var(--soft)}
+ .summary .row b{color:var(--ink);font-weight:600}
+ .price{display:flex;justify-content:space-between;align-items:baseline;margin:10px 0 4px;padding-top:10px;border-top:1px solid var(--hair)}
+ .price .t{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+ .price .v{font-family:var(--serif);font-size:24px}
+ .cta{width:100%;margin-top:10px;font:600 14px var(--sans);color:var(--ground);background:var(--ink);border:none;border-radius:9px;padding:12px;cursor:pointer}
+ .cta[disabled]{opacity:.6;cursor:default}
+ .cta2{width:100%;margin-top:8px;font:600 12.5px var(--sans);color:var(--ink);background:transparent;border:1px solid var(--hair2);border-radius:9px;padding:9px;cursor:pointer}
+ .cta:hover{background:var(--brassd)}
+ .fine{font-size:10.5px;color:var(--faint);margin-top:7px;text-align:center}
+ dialog{border:none;border-radius:14px;max-width:560px;width:92%;padding:0;background:var(--panel);color:var(--ink)}
+ dialog::backdrop{background:rgba(0,0,0,.5)}
+ .dlg{padding:20px 22px}.dlg h3{font-family:var(--serif);font-weight:500;margin:0 0 4px;font-size:20px}
+ .dlg .sub{color:var(--soft);font-size:13px;margin:0 0 14px}
+ .codes{background:var(--ground);border:1px solid var(--hair);border-radius:9px;padding:12px;font-size:12px;max-height:46vh;overflow:auto}
+ .codes .r{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--hair)}
+ .codes .r:last-child{border:none}.codes .c{font-family:ui-monospace,monospace;color:var(--brassd)}
+ .dlg .x{margin-top:14px;display:flex;gap:8px}.dlg button{font:600 13px var(--sans);border-radius:8px;padding:9px 14px;cursor:pointer;border:1px solid var(--hair2);background:var(--panel);color:var(--ink)}
+ .dlg button.p{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+ .codes .sec{margin-bottom:12px}
+ .codes .sech{font:700 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--brassd);padding:2px 0 5px;border-bottom:1px solid var(--hair2);margin-bottom:3px;display:flex;justify-content:space-between}
+ .codes .sech .pc{color:var(--soft);font-weight:600;letter-spacing:0;text-transform:none}
+ .codes .secn{font-size:11px;color:var(--soft);margin:1px 0 5px;line-height:1.4}
+ .codes .sec.default{opacity:.8}.codes .sec.default .sech{color:var(--soft)}
+ .codes .r.tot{border-top:2px solid var(--hair2);margin-top:9px;padding-top:9px;font-size:13px;font-weight:600}
+</style>
+<div class="wrap">
+ <header>
+  <div class="eyebrow">Gage Court Clothiers · Made-to-measure</div>
+  <h1>Design your suit</h1>
+  <p>Choose your cloth and cut and see it on the model, then finish the details. Every choice maps to a real
+  KuteTailor order code — your selections become the make ticket. <b>v0 preview.</b></p>
+ </header>
+ <div class="layout">
+  <div class="stage">
+   <canvas class="hero" id="hero"></canvas>
+   <div class="tag"><b id="tagName">—</b><small id="tagSub"></small></div>
+   <div class="approx" id="approx"></div>
+  </div>
+  <div class="panel" id="panel"></div>
+ </div>
+</div>
+<dialog id="dlg"><div class="dlg">
+  <h3>Your make ticket</h3>
+  <p class="sub">This is exactly what would be sent to production — the KuteTailor craft codes for your suit.</p>
+  <div class="codes" id="codes"></div>
+  <div class="x"><button class="p" id="copyCodes">Copy make ticket</button><button id="copyJson">Copy order JSON</button><button id="closeDlg">Close</button></div>
+</div></dialog>
+<script>
+const CUTS=__CUTS__, OPTS=__OPTS__;
+// Fabrics: the demo set by default; when embedded on Shopify we fetch the live collection (see bootstrap at end) and reassign.
+const DEMO_FABRICS=__FABRICS__;
+let FABRICS=(window.GCC_FABRICS&&window.GCC_FABRICS.length)?window.GCC_FABRICS:DEMO_FABRICS;
+const FABRIC_COLLECTION='elite-wool';  // Shopify collection handle the customizer pulls fabrics from
+const STYLES=[
+  {label:"2-button",front:"0012",db:false,pieces:2,desc:"Single-breasted · 2-button"},
+  {label:"1-button",front:"0011",db:false,pieces:2,desc:"Single-breasted · 1-button"},
+  {label:"Double-breasted",front:"0016",db:true,pieces:2,desc:"Double-breasted · 6×2"},
+  {label:"3-piece",front:"0012",db:false,pieces:3,desc:"Single-breasted · 2-button + waistcoat"}];
+// House construction defaults = GCC's ACTUAL standard, derived from 10 live orders (real KuteTailor ecodes)
+const JKT_DEF=[["Canvas","Fused","00C1"],["Lining","Full","AAQL"],["Inner facing","A","0701"],["Shoulder","Regular","0601"],["Front hem","Regular round","AAAC"],["Inner pocket","Regular","0801"],["Ticket pocket","None","027H"]];
+const PANTS_DEF=[["Pleats","Flat front, no pleat","302L"],["Front pocket","2.5cm slant","3104"],["Back pocket","Besom w/ button","3201"],["Leg opening","9.0cm","360H"],["Waistband","Regular + snugtex","3440"],["Fly","Fish-mouth, nylon zip","3400"],["Closure","Hook & button","3412"],["Lining","Front-half","3501"]];
+const VEST_DEF=[["Front","5-button","401G"],["Collar","V, no collar","4000"],["Bottom","Regular","401J"],["Lower pockets","Welt","4300"],["Back","Matched lining + strap","4210"],["Inner lining","Regular","4714"]];
+const CUTMAP={"2-button":{"Notch":"notch","Peak":"peak","_":"notch"},"1-button":{"Peak":"one","_":"one"},
+  "Double-breasted":{"Peak":"db","_":"db"},"3-piece":{"Notch":"three","_":"three"}};
+const hero=document.getElementById('hero'),hx=hero.getContext('2d');
+let W=0,H=0,off,ox,cutAssets={},pat={},fabPix={};
+let state={fabric:FABRICS[0].code,style:"2-button",lapel:"Notch",chest:OPTS.chestPocket[0]?.code,lower:OPTS.lowerPocket[0]?.code,
+  vent:OPTS.vent[0]?.code,button:OPTS.buttons[0]?.code,lining:OPTS.linings[0]?.code,
+  mono:{on:false,initials:"",thread:OPTS.monogram.thread[0]?.code,font:OPTS.monogram.fonts[0]?.code,pos:OPTS.monogram.positions[0]?.code}};
+const WARP_AMP_N=6,NZ_MIN=0.35,NSMOOTH=3,WARP_CAP=34,PAT_DENSITY=2.15,SEAM_PHASE=0.42,SEAM_BUTTON=0.46,SS=3;
+const TO_LIN=new Float32Array(256);for(let i=0;i<256;i++){const c=i/255;TO_LIN[i]=c<=0.04045?c/12.92:Math.pow((c+0.055)/1.055,2.4);}
+function lin2srgb(l){l=l<0?0:l>1?1:l;return (l<=0.0031308?12.92*l:1.055*Math.pow(l,1/2.4)-0.055)*255;}
+function load(src){return new Promise(r=>{const i=new Image();if(/^https?:/.test(src))i.crossOrigin='anonymous';i.onload=()=>r(i);i.onerror=()=>r(i);i.src=src;});}
+function boxBlur(src,w,h,r){if(r<=0)return src.slice();const t=new Float32Array(w*h),o=new Float32Array(w*h),n=2*r+1;
+  for(let y=0;y<h;y++){let s=0;for(let x=-r;x<=r;x++)s+=src[y*w+Math.min(w-1,Math.max(0,x))];
+    for(let x=0;x<w;x++){t[y*w+x]=s/n;const a=Math.min(w-1,x+r+1),b=Math.max(0,x-r);s+=src[y*w+a]-src[y*w+b];}}
+  for(let x=0;x<w;x++){let s=0;for(let y=-r;y<=r;y++)s+=t[Math.min(h-1,Math.max(0,y))*w+x];
+    for(let y=0;y<h;y++){o[y*w+x]=s/n;const a=Math.min(h-1,y+r+1),b=Math.max(0,y-r);s+=t[a*w+x]-t[b*w+x];}}
+  return o;}
+function buildWarpNormal(nimg,alpha){const nc=document.createElement('canvas');nc.width=W;nc.height=H;
+  const nxc=nc.getContext('2d');nxc.drawImage(nimg,0,0,W,H);const g=nxc.getImageData(0,0,W,H).data;
+  const sx=new Float32Array(W*H),sy=new Float32Array(W*H);
+  for(let i=0;i<W*H;i++){if(!alpha[i])continue;const nx=g[i*4]/127.5-1,ny=g[i*4+1]/127.5-1,nz=Math.max(Math.abs(g[i*4+2]/127.5-1),NZ_MIN);sx[i]=nx/nz;sy[i]=ny/nz;}
+  const bx=boxBlur(sx,W,H,NSMOOTH),by=boxBlur(sy,W,H,NSMOOTH);const dispX=new Float32Array(W*H),dispY=new Float32Array(W*H);
+  for(let i=0;i<W*H;i++){if(!alpha[i])continue;let dx=-WARP_AMP_N*bx[i],dy=-WARP_AMP_N*by[i];const m=Math.hypot(dx,dy);if(m>WARP_CAP){dx*=WARP_CAP/m;dy*=WARP_CAP/m;}dispX[i]=dx;dispY[i]=dy;}
+  return {dispX,dispY,alpha};}
+function buildPanels(alpha){const cen=new Float32Array(H);
+  for(let y=0;y<H;y++){let s=0,c=0;for(let x=0;x<W;x++){if(alpha[y*W+x]){s+=x;c++;}}cen[y]=c?s/c:W/2;}
+  const sm=new Float32Array(H),r=15;for(let y=0;y<H;y++){let s=0,c=0;for(let k=-r;k<=r;k++){const yy=y+k;if(yy>=0&&yy<H){s+=cen[yy];c++;}}sm[y]=s/c;}
+  const bY=Math.floor(SEAM_BUTTON*H),panel=new Uint8Array(W*H);for(let y=0;y<bY;y++)for(let x=0;x<W;x++)if(alpha[y*W+x]&&x>sm[y])panel[y*W+x]=1;return panel;}
+function sizeHero(){const AR=(hero.width/hero.height)||0.747;const maxH=Math.min(0.62*(innerHeight||800),600);
+  const pw=(hero.parentElement&&hero.parentElement.clientWidth)||(maxH*AR);let h=maxH,w=h*AR;
+  if(w>pw-16){w=pw-16;h=w/AR;}hero.style.width=Math.round(w)+'px';hero.style.height=Math.round(h)+'px';}
+async function init(){
+  for(const c of CUTS){const [b,d,m,nimg]=await Promise.all([load(c.base),load(c.drape),load(c.mask),load(c.normal)]);
+    if(!W){W=b.naturalWidth;H=b.naturalHeight;hero.width=W;hero.height=H;sizeHero();addEventListener('resize',sizeHero);off=document.createElement('canvas');off.width=W;off.height=H;ox=off.getContext('2d');}
+    const dc=document.createElement('canvas');dc.width=W;dc.height=H;const dx=dc.getContext('2d');
+    dx.drawImage(d,0,0,W,H);const di=dx.getImageData(0,0,W,H);
+    const mc=document.createElement('canvas');mc.width=W;mc.height=H;const mx=mc.getContext('2d');
+    mx.drawImage(m,0,0,W,H);const mi=mx.getImageData(0,0,W,H);
+    for(let i=0;i<di.data.length;i+=4)di.data[i+3]=mi.data[i];dx.putImageData(di,0,0);
+    const alpha=new Uint8Array(W*H);for(let i=0;i<W*H;i++)alpha[i]=mi.data[i*4];
+    const warp=buildWarpNormal(nimg,alpha);
+    cutAssets[c.id]={base:b,drapeLA:dc,warp,panel:c.openFront?buildPanels(warp.alpha):new Uint8Array(W*H)};}
+  await Promise.all(FABRICS.map(async f=>{const t=await load(f.tile);pat[f.code]=ox.createPattern(t,'repeat');
+    const tc=document.createElement('canvas');tc.width=t.naturalWidth;tc.height=t.naturalHeight;tc.getContext('2d').drawImage(t,0,0);
+    fabPix[f.code]={d:tc.getContext('2d').getImageData(0,0,tc.width,tc.height).data,w:tc.width,h:tc.height};}));
+  buildPanelUI();render();}
+let clothC,clothX;
+function warpedCloth(cutId,code){const {dispX,dispY,alpha}=cutAssets[cutId].warp,panel=cutAssets[cutId].panel,T=fabPix[code],tw=T.w,th=T.h,td=T.d;
+  const dens=(FABRICS.find(f=>f.code===code)||{}).density||PAT_DENSITY;const pox=SEAM_PHASE*tw,poy=SEAM_PHASE*th;
+  if(!clothC){clothC=document.createElement('canvas');clothC.width=W;clothC.height=H;clothX=clothC.getContext('2d');}
+  const out=clothX.createImageData(W,H),od=out.data;
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x;if(!alpha[i]){od[i*4+3]=0;continue;}
+    const oxx=panel[i]?pox:0,oyy=panel[i]?poy:0;const cx=(x+dispX[i])*dens+oxx,cy=(y+dispY[i])*dens+oyy;
+    const gx=i%W<W-1?Math.abs(dispX[i+1]-dispX[i]):0,gy=i>=W?Math.abs(dispY[i]-dispY[i-W]):0;const fp=dens*(1+2*(gx+gy));
+    let rl=0,gl=0,bl=0;
+    for(let sj=0;sj<SS;sj++)for(let si=0;si<SS;si++){const sx=cx+((si+0.5)/SS-0.5)*fp,sy=cy+((sj+0.5)/SS-0.5)*fp;
+      let fx=sx%tw;if(fx<0)fx+=tw;let fy=sy%th;if(fy<0)fy+=th;
+      const x0=fx|0,y0=fy|0,x1=(x0+1)%tw,y1=(y0+1)%th,ax=fx-x0,ay=fy-y0;
+      const p00=(y0*tw+x0)*4,p10=(y0*tw+x1)*4,p01=(y1*tw+x0)*4,p11=(y1*tw+x1)*4;let t,b2;
+      t=TO_LIN[td[p00]]*(1-ax)+TO_LIN[td[p10]]*ax;b2=TO_LIN[td[p01]]*(1-ax)+TO_LIN[td[p11]]*ax;rl+=t*(1-ay)+b2*ay;
+      t=TO_LIN[td[p00+1]]*(1-ax)+TO_LIN[td[p10+1]]*ax;b2=TO_LIN[td[p01+1]]*(1-ax)+TO_LIN[td[p11+1]]*ax;gl+=t*(1-ay)+b2*ay;
+      t=TO_LIN[td[p00+2]]*(1-ax)+TO_LIN[td[p10+2]]*ax;b2=TO_LIN[td[p01+2]]*(1-ax)+TO_LIN[td[p11+2]]*ax;bl+=t*(1-ay)+b2*ay;}
+    const n=SS*SS;od[i*4]=lin2srgb(rl/n);od[i*4+1]=lin2srgb(gl/n);od[i*4+2]=lin2srgb(bl/n);od[i*4+3]=255;}
+  clothX.putImageData(out,0,0);return clothC;}
+function resolveCut(){const s=CUTMAP[state.style]||CUTMAP["2-button"];const cut=s[state.lapel]||s["_"];return {cut,approx:!s[state.lapel]};}
+function render(){const {cut,approx}=resolveCut();const A=cutAssets[cut];hx.clearRect(0,0,W,H);hx.drawImage(A.base,0,0);
+  const f=FABRICS.find(x=>x.code===state.fabric),useWarp=f.kind==='pattern';
+  ox.setTransform(1,0,0,1,0,0);ox.clearRect(0,0,W,H);ox.globalCompositeOperation='source-over';
+  if(useWarp){ox.drawImage(warpedCloth(cut,state.fabric),0,0);}else{ox.fillStyle=pat[state.fabric];ox.fillRect(0,0,W,H);}
+  ox.globalCompositeOperation='destination-in';ox.drawImage(A.drapeLA,0,0);
+  ox.globalCompositeOperation='overlay';ox.drawImage(A.drapeLA,0,0);ox.globalCompositeOperation='source-over';
+  hx.drawImage(off,0,0);
+  document.getElementById('tagName').textContent=f.name;
+  document.getElementById('tagSub').textContent=f.code+' · '+state.style+' · '+state.lapel+' lapel';
+  document.getElementById('approx').textContent=approx?('Preview shown with the nearest rendered lapel — your suit is made with the '+state.lapel+' lapel.'):'';
+  updateSummary();}
+// ---- UI ----
+function seg(list,key,cb){const w=document.createElement('div');w.className='segs';
+  list.forEach(o=>{const label=Array.isArray(o)?o[0]:o.label||o.name;const val=Array.isArray(o)?o[0]:o.code||o.name;
+    const b=document.createElement('button');b.className='seg';b.textContent=label;b.setAttribute('aria-pressed',state[key]===val);
+    b.onclick=()=>{state[key]=val;[...w.children].forEach(x=>x.setAttribute('aria-pressed',false));b.setAttribute('aria-pressed',true);cb&&cb();};w.appendChild(b);});
+  return w;}
+function swatches(list,key,render6){const g=document.createElement('div');g.className='swgrid';
+  list.forEach(o=>{const b=document.createElement('button');b.className='sw';b.title=(o.name||o.label||'')+(o.code?' · '+o.code:'');
+    b.style.backgroundImage=`url(${o.tile||o.img})`;b.setAttribute('aria-pressed',state[key]===o.code);
+    b.onclick=()=>{state[key]=o.code;[...g.children].forEach(x=>x.setAttribute('aria-pressed',false));b.setAttribute('aria-pressed',true);render6&&render6();};g.appendChild(b);});
+  return g;}
+function optcards(list,key){const g=document.createElement('div');g.className='optgrid';
+  list.forEach(o=>{const b=document.createElement('button');b.className='opt';b.setAttribute('aria-pressed',state[key]===o.code);
+    b.innerHTML=(o.img?`<img src="${o.img}">`:'')+`<span class="nm">${o.label||o.name}</span>`;
+    b.onclick=()=>{state[key]=o.code;[...g.children].forEach(x=>x.setAttribute('aria-pressed',false));b.setAttribute('aria-pressed',true);updateSummary();};g.appendChild(b);});
+  return g;}
+function group(step,title,valId,body){const s=document.createElement('section');s.className='grp';
+  s.innerHTML=`<div class="hd"><span class="step">${step}</span><span class="val" id="${valId}"></span></div>`;
+  const bd=document.createElement('div');bd.className='bd';bd.appendChild(body);s.appendChild(bd);return s;}
+function buildPanelUI(){const p=document.getElementById('panel');
+  p.appendChild(group('1 · Cloth','',null,swatches(FABRICS,'fabric',render)));
+  p.appendChild(group('2 · Style','',null,seg(STYLES.map(s=>[s.label,s.label]),'style',render)));
+  p.appendChild(group('3 · Lapel','',null,seg(OPTS.lapel.map(l=>[l.label,l.code]),'lapel',render)));
+  const cp=document.createElement('div');cp.appendChild(optcards(OPTS.chestPocket,'chest'));
+  const cpn=document.createElement('div');cpn.className='spec';cpn.textContent='Chest & lower pocket, vents — made to your choice; front preview shows the welt/flap base.';
+  const lw=optcards(OPTS.lowerPocket,'lower');const vt=seg(OPTS.vent,'vent',updateSummary);
+  const pk=document.createElement('div');pk.appendChild(cp.firstChild);pk.appendChild(document.createElement('div'));pk.lastChild.style.height='7px';
+  pk.appendChild(lw);pk.appendChild(document.createElement('div'));pk.lastChild.style.height='7px';pk.appendChild(vt);pk.appendChild(cpn);
+  p.appendChild(group('4 · Pockets & vents','',null,pk));
+  p.appendChild(group('5 · Buttons','',null,swatches(OPTS.buttons,'button',updateSummary)));
+  p.appendChild(group('6 · Lining','',null,swatches(OPTS.linings,'lining',updateSummary)));
+  // monogram
+  const mg=document.createElement('div');
+  const tog=document.createElement('div');tog.className='toggle';tog.setAttribute('aria-pressed',state.mono.on);tog.style.cursor='pointer';
+  tog.innerHTML=`<span class="sw2"></span><span>Add a personal monogram</span>`;
+  const flds=document.createElement('div');flds.className='mono-fields off';
+  flds.innerHTML=`<div class="fld"><label>Initials</label><input type="text" id="mInit" maxlength="4" placeholder="e.g. R.W."></div>`;
+  const tw2=document.createElement('div');tw2.className='fld';tw2.innerHTML='<label>Thread colour</label>';tw2.appendChild(seg(OPTS.monogram.thread.map(t=>({label:t.name,code:t.code})),'_mthread',()=>{state.mono.thread=state._mthread;updateSummary();}));
+  const fn2=document.createElement('div');fn2.className='fld';fn2.innerHTML='<label>Font</label>';fn2.appendChild(seg(OPTS.monogram.fonts.map(t=>({label:t.name||t.code,code:t.code})),'_mfont',()=>{state.mono.font=state._mfont;updateSummary();}));
+  const po2=document.createElement('div');po2.className='fld';po2.innerHTML='<label>Position</label>';po2.appendChild(seg(OPTS.monogram.positions.map(t=>({label:t.name.length>28?t.name.slice(0,28)+'…':t.name,code:t.code})),'_mpos',()=>{state.mono.pos=state._mpos;updateSummary();}));
+  flds.appendChild(tw2);flds.appendChild(fn2);flds.appendChild(po2);
+  state._mthread=state.mono.thread;state._mfont=state.mono.font;state._mpos=state.mono.pos;
+  tog.onclick=()=>{state.mono.on=!state.mono.on;tog.setAttribute('aria-pressed',state.mono.on);flds.classList.toggle('off',!state.mono.on);updateSummary();};
+  flds.querySelector('#mInit').oninput=e=>{state.mono.initials=e.target.value;updateSummary();};
+  mg.appendChild(tog);mg.appendChild(flds);
+  p.appendChild(group('7 · Monogram','',null,mg));
+  // summary
+  const sm=document.createElement('div');sm.className='summary';sm.id='summary';p.appendChild(sm);
+}
+function nameOf(list,code,field){const o=(list||[]).find(x=>x.code===code);return o?(o.name||o.label||o[field]||code):code;}
+// Price = the fabric's own 2-piece price (+ its vest price for 3-piece) + monogram. Per-fabric prices come from the Shopify product; demo falls back to 575/200.
+function price(){const f=FABRICS.find(x=>x.code===state.fabric)||{};const base=(f.price2pc!=null?f.price2pc:575);const vest=(f.priceVest!=null?f.priceVest:200);return base+(curStyle().pieces===3?vest:0)+(state.mono.on?25:0);}
+function curStyle(){return STYLES.find(s=>s.label===state.style)||STYLES[0];}
+function ticket(){const f=FABRICS.find(x=>x.code===state.fabric);const st=curStyle();
+  const lap=OPTS.lapel.find(l=>l.label===state.lapel)||{};
+  const jrows=[['Front & buttons',st.desc,st.front],['Lapel',state.lapel,lap.code||''],
+    ['Chest pocket',nameOf(OPTS.chestPocket,state.chest),state.chest],['Lower pockets',nameOf(OPTS.lowerPocket,state.lower),state.lower],
+    ['Vents',nameOf(OPTS.vent,state.vent),state.vent],['Lining',nameOf(OPTS.linings,state.lining),state.lining],
+    ['Buttons',nameOf(OPTS.buttons,state.button),state.button]];
+  if(state.mono.on)jrows.push(['Monogram',(state.mono.initials||'—')+' · '+nameOf(OPTS.monogram.thread,state.mono.thread,'name')+' · '+nameOf(OPTS.monogram.fonts,state.mono.font,'name'),[state.mono.pos,state.mono.thread,state.mono.font].filter(Boolean).join(',')]);
+  const sections=[
+    {title:'Cloth',pc:'',kind:'cloth',rows:[[f.name,'',f.code]]},
+    {title:'Jacket',pc:'1 of '+st.pieces,kind:'garment',rows:jrows},
+    {title:'Trousers',pc:'2 of '+st.pieces,kind:'garment',rows:PANTS_DEF.slice()}];
+  if(st.pieces===3)sections.push({title:'Waistcoat',pc:'3 of 3',kind:'garment',
+    note:'Matching cloth. Waistcoat construction finalised at your fitting.',rows:VEST_DEF.slice()});
+  sections.push({title:'Jacket construction — house standard',pc:'',kind:'default',rows:JKT_DEF.slice()});
+  return {fabric:{name:f.name,code:f.code},price:price(),pieces:st.pieces,sections};}
+function ticketText(){const t=ticket();let o='GAGE COURT CLOTHIERS — MAKE TICKET ('+t.pieces+'-piece)\n';
+  t.sections.forEach(s=>{o+='\n'+s.title.toUpperCase()+'\n';if(s.note)o+='  ('+s.note+')\n';
+    s.rows.forEach(r=>{o+='  '+r[0]+(r[1]?': '+r[1]:'')+(r[2]&&r[2]!=='—'?'  ['+r[2]+']':'')+'\n';});});
+  o+='\nIndicative price: $'+t.price.toLocaleString()+'\n';return o;}
+// Real KuteTailor POST /order/saveOrder body (submit:false = saves to CART, unpaid). crafts = comma-joined ecode / ecode:content.
+// jacket=MXF pants=MXK vest=MMJ; 2pc category "T", 3pc category "S". Button=0638/3454/4240:<code>, lining=0714/4714:<code>.
+// Standard size = jacket/vest 38R, pants 32R (inches); measuresType 10002 (finished); positionEcode = blEcode (XF/XK/MJ).
+const STD_SIZE={
+  MXF:[["XF01",41.7],["XF02",37.0],["XF03",40.9],["XF08",17.7],["XF05",24.4],["XF06",24.4],["XF07",29.5],["XF04",15.4]],
+  MXK:[["XK01",33.9],["XK02",40.9],["XK03",25.6],["XK04",26.8],["XK05",42.1],["XK06",42.1],["XK07",15.4]],
+  MMJ:[["MJ01",39.8],["MJ02",37.0],["MJ04",23.2]]};
+function stdSizes(cc){return STD_SIZE[cc].map(function(x){return {positionEcode:x[0],size:x[1]};});}
+function orderPayload(){const st=curStyle();const three=st.pieces===3;
+  const lap=(OPTS.lapel.find(l=>l.label===state.lapel)||{}).code||'';
+  const jc=[st.front,lap,state.chest,state.lower,state.vent,'00C1','AAQL','0701','0714:'+state.lining,'0638:'+state.button,'0601','AAAC','0801','027H'].filter(Boolean).join(',');
+  const pc=['302L','3104','3201','360H','3440','344A','3412','3400','3420','372K','3501','3454:'+state.button].join(',');
+  const details=[
+    {categoryCode:'MXF',styleCode:'',crafts:jc,sizeNames:'38R',orderSizes:stdSizes('MXF'),
+     orderEmbs:(state.mono.on?[{embPositionCode:state.mono.pos,fontCode:state.mono.font,colorCode:state.mono.thread,content:state.mono.initials||''}]:[])},
+    {categoryCode:'MXK',styleCode:'',crafts:pc,sizeNames:'32R',orderSizes:stdSizes('MXK')}];
+  if(three)details.push({categoryCode:'MMJ',styleCode:'',crafts:['401G','401J','4000','4X06','4300','4210','4200','4714:'+state.lining,'4240:'+state.button].join(','),sizeNames:'38R',orderSizes:stdSizes('MMJ')});
+  return {orderNo:'',submit:false,customerNo:'',addProduct:true,amount:1,isSample:0,
+    category:three?'S':'T',measuresType:10002,fabric:state.fabric,
+    customer:{nickname:'',firstname:'',lastname:'',gender:'1002',height:178,heightUnit:1019,weight:80,weightUnit:1017},
+    orderDetails:details};}
+// ---- Shopify order capture: one container product; design travels as line-item properties ----
+const SHOPIFY={containerId:8484001677499,
+  variantByPrice:{550:48117852012731,575:48117852045499,600:48117852078267,625:48117852111035,650:48117852143803,675:48117852176571,700:48117852209339,725:48117852242107,750:48117852274875,775:48117852307643,800:48117852340411,825:48117852373179,850:48117852405947,875:48117852438715,900:48117852471483,950:48117852504251,1000:48117852537019}};
+function pickVariant(total){const tiers=Object.keys(SHOPIFY.variantByPrice).map(Number).sort((a,b)=>a-b);let t=tiers.find(x=>x>=total);if(t==null)t=tiers[tiers.length-1];return SHOPIFY.variantByPrice[t];}
+// Neutral, supplier-agnostic order the backend receives; KuteTailor saveOrder body is one mapping inside supplierSpecs.
+function orderEnvelope(){const f=FABRICS.find(x=>x.code===state.fabric)||{};const st=curStyle();
+  return {schema:'gcc.order/v1',price:price(),customer:{},
+    design:{fabricCode:state.fabric,fabricName:f.name,pieces:st.pieces,cut:state.style,lapel:state.lapel,
+      chestPocket:state.chest,lowerPocket:state.lower,vent:state.vent,lining:state.lining,buttons:state.button,
+      monogram:state.mono.on?{initials:state.mono.initials,thread:state.mono.thread,font:state.mono.font,position:state.mono.pos}:null,
+      size:'jacket 38R / pants 32R (standard — confirmed at fitting)'},
+    supplierSpecs:{kutetailor:orderPayload()}};}
+function onShopify(){return !!(window.Shopify&&window.Shopify.routes);}
+function addToCart(){const env=orderEnvelope();const vid=pickVariant(env.price);const f=FABRICS.find(x=>x.code===state.fabric)||{};
+  const props={'_config':JSON.stringify(env),'Cloth':(f.name||'')+' ('+state.fabric+')','Cut':state.style+' · '+state.lapel+' lapel',
+    'Lining':nameOf(OPTS.linings,state.lining),'Buttons':nameOf(OPTS.buttons,state.button)};
+  if(state.mono.on)props['Monogram']=(state.mono.initials||'(initials)');
+  if(!onShopify()){openTicket();return;}   // standalone preview: show the make ticket instead of hitting a live cart
+  const btn=document.getElementById('addCart');if(btn){btn.disabled=true;btn.textContent='Adding…';}
+  const root=(window.Shopify&&Shopify.routes&&Shopify.routes.root)||'/';
+  fetch(root+'cart/add.js',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({items:[{id:vid,quantity:1,properties:props}]})})
+   .then(r=>r.json()).then(()=>{window.location.href=root+'cart';})
+   .catch(e=>{if(btn){btn.disabled=false;btn.textContent='Add to cart — $'+price().toLocaleString();}alert('Could not add to cart: '+e);});}
+function updateSummary(){const sm=document.getElementById('summary');if(!sm)return;const f=FABRICS.find(x=>x.code===state.fabric);
+  const lines=[['Cloth',f.name],['Style',state.style+' · '+state.lapel],['Buttons',nameOf(OPTS.buttons,state.button)],['Lining',nameOf(OPTS.linings,state.lining)]];
+  if(state.mono.on)lines.push(['Monogram',state.mono.initials||'(initials)']);
+  sm.innerHTML=lines.map(([k,v])=>`<div class="row"><span>${k}</span><b>${v}</b></div>`).join('')+
+    `<div class="price"><span class="t">Price</span><span class="v">$${price().toLocaleString()}</span></div>`+
+    `<button class="cta" id="addCart">Add to cart — $${price().toLocaleString()}</button>`+
+    `<button class="cta2" id="cta">Review make ticket</button>`+
+    `<div class="fine">Made to measure. Fit confirmed at your Pikesville or Central-Jersey fitting.</div>`;
+  document.getElementById('addCart').onclick=addToCart;
+  document.getElementById('cta').onclick=openTicket;
+  // reflect current group values
+  const setv=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+}
+function openTicket(){const t=ticket();const el=document.getElementById('codes');
+  let h=t.sections.map(sec=>{let s=`<div class="sec ${sec.kind}"><div class="sech"><span>${sec.title}</span>${sec.pc?`<span class="pc">${sec.pc}</span>`:''}</div>`;
+    if(sec.note)s+=`<div class="secn">${sec.note}</div>`;
+    s+=sec.rows.map(r=>`<div class="r"><span>${r[0]}${r[1]?': <b>'+r[1]+'</b>':''}</span><span class="c">${r[2]&&r[2]!=='—'?r[2]:''}</span></div>`).join('');
+    return s+`</div>`;}).join('');
+  h+=`<div class="r tot"><span>Indicative price</span><span class="c">$${t.price.toLocaleString()}</span></div>`;
+  el.innerHTML=h;document.getElementById('dlg').showModal();}
+document.getElementById('closeDlg').onclick=()=>document.getElementById('dlg').close();
+function copyTo(id,txt,done){try{navigator.clipboard&&navigator.clipboard.writeText(txt);}catch(e){}const b=document.getElementById(id);const o=b.textContent;b.textContent=done;setTimeout(()=>b.textContent=o,1400);}
+document.getElementById('copyCodes').onclick=()=>copyTo('copyCodes',ticketText(),'Copied ✓');
+document.getElementById('copyJson').onclick=()=>copyTo('copyJson',JSON.stringify(orderPayload(),null,2),'Copied ✓');
+// When embedded on Shopify, pull the fabric list from the live collection (published products only; drafts → empty → keep demo).
+async function loadShopifyFabrics(){
+  try{
+    const r=await fetch('/collections/'+FABRIC_COLLECTION+'/products.json?limit=250',{headers:{'Accept':'application/json'}});
+    if(!r.ok)return null;const j=await r.json();
+    const fabs=(j.products||[]).map(p=>{
+      const two=(p.variants||[]).find(v=>/two piece/i.test(v.title))||p.variants[0]||{};
+      const vest=(p.variants||[]).find(v=>/vest/i.test(v.title));
+      const code=(two.sku)||(p.variants[0]&&p.variants[0].sku)||'';
+      const img=(p.images&&p.images[0]&&(p.images[0].src))||'';
+      const pat=/check|plaid|windowpane|glen|prince of wales|stripe|herringbone|houndstooth/i.test(p.title);
+      return {code,name:(p.title||'').replace(/\s*\([^)]*\)\s*$/,'').replace(/^Elite Wool\s*[-–]\s*/i,''),
+        kind:pat?'pattern':'solid',tile:img,
+        price2pc:Math.round(parseFloat(two.price||'575')),priceVest:vest?Math.round(parseFloat(vest.price)):200};
+    }).filter(f=>f.code&&f.tile);
+    return fabs.length?fabs:null;
+  }catch(e){return null;}
+}
+(async function(){ if(onShopify()){const sf=await loadShopifyFabrics(); if(sf){FABRICS=sf; state.fabric=sf[0].code;}} init(); })();
+</script>
+"""
+open(OUT, "w").write(HTML.replace("__CUTS__", json.dumps(cuts)).replace("__FABRICS__", json.dumps(fabs)).replace("__OPTS__", json.dumps(OPTS)))
+print("wrote", OUT, f"({os.path.getsize(OUT)/1024/1024:.2f} MB)")

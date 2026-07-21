@@ -1,0 +1,67 @@
+# =============================================================================
+# Gage Court suit configurator
+#
+# Rule of thumb: commit anything that is SOURCE or IRREPLACEABLE.
+# Exclude anything DERIVED, STATIC-AND-HUGE, or re-downloadable.
+# Full repo would be ~713 MB; this keeps it near 55 MB.
+# =============================================================================
+
+# --- SECRETS -----------------------------------------------------------------
+# Credentials live in ~/Desktop/GCC_Fabric_Handoff/keys/ (outside this tree).
+# These patterns are a safety net in case anything is ever copied in.
+keys/
+*key*.txt
+*creds*.json
+*credential*
+.env
+.env.*
+
+# --- DERIVED: reproducible from what IS committed ----------------------------
+# Marigold normal maps: 25 MB each, regenerated from renders/ by gen_normals_all.py
+# (the .png visualisations are small and ARE committed).
+**/*.npy
+
+# Build artifact: byte-identical from `python3 builder/build_configurator_v0.py`
+configurator-v0.html
+configurator-v0.html.*
+builder/gcc-configurator.js
+
+# Historical one-off builds superseded by configurator-v0.html
+gcc-suit-configurator.html
+house-customizer.html
+normal-compare.html
+contact_sheet.png
+new_models_symmetric_notie.png
+
+# --- STATIC AND LARGE: back these up separately, they do not change ----------
+# 117 mill scans @300 DPI (121 MB) — the source material for prep_fabrics.py
+hires_swatches/
+
+# Option imagery (~100 MB) and the KuteTailor craft catalogues
+config/img/
+order_wiring/*.json
+
+# --- REGENERABLE / RE-DOWNLOADABLE -------------------------------------------
+# Suitsupply reference layers (re-pullable from their CDN) and comparison output
+audit/ss/
+audit/out/
+audit/c1/
+audit/v2/
+audit/final/
+audit/final2/
+audit/sharp/
+audit/new/
+audit/ours/
+audit/exp/
+audit/nosheen/
+ss_reference/
+_orig_before_sym/
+
+# Logs
+*.log
+
+# --- OS / editor -------------------------------------------------------------
+.DS_Store
+__pycache__/
+*.pyc
+.venv/

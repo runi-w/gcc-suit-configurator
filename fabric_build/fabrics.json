@@ -1,0 +1,252 @@
+[
+ {
+  "code": "DBS131A",
+  "file": "DBS131A",
+  "name": "Navy Herringbone",
+  "dpi": 300.0,
+  "pxPerCm": 118.11,
+  "cmPerTile": 7.0,
+  "tilePx": 384,
+  "weave": 14.71,
+  "pattern": 0.52,
+  "meanLum": 0.0224,
+  "rgb": [
+   39,
+   40,
+   58
+  ],
+  "lab": [
+   16.7,
+   4.6,
+   -11.6
+  ],
+  "sheen": 0.117,
+  "relief": 0.84,
+  "kind": "solid"
+ },
+ {
+  "code": "DBP677A",
+  "file": "DBP677A",
+  "name": "Midnight Herringbone",
+  "dpi": 300.0,
+  "pxPerCm": 118.11,
+  "cmPerTile": 7.0,
+  "tilePx": 384,
+  "weave": 9.32,
+  "pattern": 0.27,
+  "meanLum": 0.0122,
+  "rgb": [
+   27,
+   29,
+   35
+  ],
+  "lab": [
+   10.7,
+   0.8,
+   -4.6
+  ],
+  "sheen": 0.1,
+  "relief": 0.7,
+  "kind": "solid"
+ },
+ {
+  "code": "DBV305A",
+  "file": "DBV305A",
+  "name": "Navy Houndstooth",
+  "dpi": 300.0,
+  "pxPerCm": 118.11,
+  "cmPerTile": 7.0,
+  "tilePx": 384,
+  "weave": 14.79,
+  "pattern": 0.62,
+  "meanLum": 0.0188,
+  "rgb": [
+   32,
+   37,
+   52
+  ],
+  "lab": [
+   14.9,
+   2.2,
+   -10.6
+  ],
+  "sheen": 0.117,
+  "relief": 0.84,
+  "kind": "solid"
+ },
+ {
+  "code": "DEE1020",
+  "file": "DEE1020 DBN802A",
+  "name": "Deep Navy",
+  "dpi": 300.0,
+  "pxPerCm": 118.11,
+  "cmPerTile": 7.0,
+  "tilePx": 384,
+  "weave": 11.6,
+  "pattern": 0.43,
+  "meanLum": 0.0201,
+  "rgb": [
+   39,
+   38,
+   44
+  ],
+  "lab": [
+   15.5,
+   1.9,
+   -3.6
+  ],
+  "sheen": 0.107,
+  "relief": 0.76,
+  "kind": "solid"
+ },
+ {
+  "code": "DBT572A",
+  "file": "DBT572A",
+  "name": "Jet Black",
+  "dpi": 300.0,
+  "pxPerCm": 118.11,
+  "cmPerTile": 7.0,
+  "tilePx": 384,
+  "weave": 11.29,
+  "pattern": 0.47,
+  "meanLum": 0.015,
+  "rgb": [
+   33,
+   33,
+   32
+  ],
+  "lab": [
+   12.6,
+   -0.1,
+   0.4
+  ],
+  "sheen": 0.106,
+  "relief": 0.75,
+  "kind": "solid"
+ },
+ {
+  "code": "DBV196A",
+  "file": "DBV196A",
+  "name": "Silver Glen Check",
+  "dpi": 300.0,
+  "pxPerCm": 118.11,
+  "cmPerTile": 7.0,
+  "tilePx": 384,
+  "weave": 61.04,
+  "pattern": 3.18,
+  "meanLum": 0.1396,
+  "rgb": [
+   107,
+   103,
+   106
+  ],
+  "lab": [
+   44.2,
+   1.9,
+   -0.9
+  ],
+  "sheen": 0.26,
+  "relief": 2.0,
+  "kind": "pattern"
+ },
+ {
+  "code": "DBU080A",
+  "file": "DBU080A",
+  "name": "Grey Chalk Stripe",
+  "dpi": 300.0,
+  "pxPerCm": 118.11,
+  "cmPerTile": 7.0,
+  "tilePx": 384,
+  "weave": 32.28,
+  "pattern": 2.48,
+  "meanLum": 0.0938,
+  "rgb": [
+   87,
+   86,
+   88
+  ],
+  "lab": [
+   36.7,
+   0.8,
+   -0.7
+  ],
+  "sheen": 0.171,
+  "relief": 1.28,
+  "kind": "pattern"
+ },
+ {
+  "code": "DBS137A",
+  "file": "DBS137A",
+  "name": "Grey Glen Check",
+  "dpi": 300.0,
+  "pxPerCm": 118.11,
+  "cmPerTile": 7.0,
+  "tilePx": 384,
+  "weave": 43.84,
+  "pattern": 2.04,
+  "meanLum": 0.0807,
+  "rgb": [
+   81,
+   80,
+   83
+  ],
+  "lab": [
+   34.1,
+   1.5,
+   -1.8
+  ],
+  "sheen": 0.207,
+  "relief": 1.57,
+  "kind": "pattern"
+ },
+ {
+  "code": "DBS139A",
+  "file": "DBS139A",
+  "name": "Navy Prince of Wales",
+  "dpi": 300.0,
+  "pxPerCm": 118.11,
+  "cmPerTile": 7.0,
+  "tilePx": 384,
+  "weave": 20.59,
+  "pattern": 0.88,
+  "meanLum": 0.0357,
+  "rgb": [
+   52,
+   52,
+   65
+  ],
+  "lab": [
+   22.2,
+   3.3,
+   -8.2
+  ],
+  "sheen": 0.135,
+  "relief": 0.98,
+  "kind": "solid"
+ },
+ {
+  "code": "DEE1017",
+  "file": "DEE1017 DBN317A",
+  "name": "Charcoal Windowpane",
+  "dpi": 300.0,
+  "pxPerCm": 118.11,
+  "cmPerTile": 7.0,
+  "tilePx": 384,
+  "weave": 23.56,
+  "pattern": 1.76,
+  "meanLum": 0.0486,
+  "rgb": [
+   62,
+   62,
+   65
+  ],
+  "lab": [
+   26.3,
+   0.7,
+   -1.9
+  ],
+  "sheen": 0.144,
+  "relief": 1.06,
+  "kind": "pattern"
+ }
+]

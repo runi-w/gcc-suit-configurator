@@ -1,0 +1,2435 @@
+{
+  "jacket": {
+    "1. Style": {
+      "Style": {
+        "options": [],
+        "render": "spec"
+      },
+      "Canvas": {
+        "options": [
+          {
+            "code": "000A",
+            "label": "Full",
+            "price": null
+          },
+          {
+            "code": "000B",
+            "label": "Half",
+            "price": null
+          },
+          {
+            "code": "00C1",
+            "label": "Fused",
+            "price": null
+          },
+          {
+            "code": "00D1",
+            "label": "Unconstructed chest canvas",
+            "price": null
+          },
+          {
+            "code": "00C3",
+            "label": "Single layer",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      },
+      "Shoulder - Shoulder shape": {
+        "options": [
+          {
+            "code": "0601",
+            "label": "Regular",
+            "price": null
+          },
+          {
+            "code": "0A2K",
+            "label": "Natural (big bicep)",
+            "price": null
+          },
+          {
+            "code": "0603",
+            "label": "Natural",
+            "price": null
+          },
+          {
+            "code": "06DC",
+            "label": "Casual",
+            "price": null
+          },
+          {
+            "code": "060N",
+            "label": "Neapolitan",
+            "price": null
+          }
+        ],
+        "render": "minor"
+      },
+      "Front bttn": {
+        "options": [
+          {
+            "code": "0011",
+            "label": "1 bttn",
+            "price": null
+          },
+          {
+            "code": "0012",
+            "label": "2 bttns",
+            "price": null
+          },
+          {
+            "code": "0013",
+            "label": "3 bttns",
+            "price": null
+          },
+          {
+            "code": "002B",
+            "label": "3 bttns (roll to 2nd)",
+            "price": null
+          },
+          {
+            "code": "0023",
+            "label": "5 bttns",
+            "price": null
+          },
+          {
+            "code": "002F",
+            "label": "2 bttns (2X1)",
+            "price": null
+          },
+          {
+            "code": "0017",
+            "label": "4 bttns (4X1)",
+            "price": null
+          },
+          {
+            "code": "0015",
+            "label": "4 bttns (4X2)",
+            "price": null
+          },
+          {
+            "code": "0018",
+            "label": "6 bttns (6X1)",
+            "price": null
+          },
+          {
+            "code": "0016",
+            "label": "6 bttns (6X2)",
+            "price": null
+          },
+          {
+            "code": "0019",
+            "label": "6 bttns (6X3)",
+            "price": null
+          }
+        ],
+        "render": "visible"
+      },
+      "Shoulder - Shoulder Patch": {
+        "options": [],
+        "render": "spec"
+      },
+      "No patch (default)": {
+        "options": [
+          {
+            "code": "06Z8",
+            "label": "Right gun patch",
+            "price": null
+          },
+          {
+            "code": "06Z5",
+            "label": "Right arch gusset",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      },
+      "Shoulder - Shoulder pad": {
+        "options": [
+          {
+            "code": "060K",
+            "label": "Regular",
+            "price": null
+          },
+          {
+            "code": "060J",
+            "label": "No pad",
+            "price": null
+          }
+        ],
+        "render": "minor"
+      },
+      "Front Bottom": {
+        "options": [
+          {
+            "code": "AAAC",
+            "label": "Regular round",
+            "price": null
+          },
+          {
+            "code": "AAAD",
+            "label": "Decrease 0.6cm round",
+            "price": null
+          },
+          {
+            "code": "AAAE",
+            "label": "Increase 0.6cm",
+            "price": null
+          },
+          {
+            "code": "AAAF",
+            "label": "Decrease 2.0cm",
+            "price": null
+          },
+          {
+            "code": "AAAG",
+            "label": "Regular straight",
+            "price": null
+          },
+          {
+            "code": "AAAH",
+            "label": "Small round",
+            "price": null
+          }
+        ],
+        "render": "visible"
+      },
+      "Placket": {
+        "options": [],
+        "render": "spec"
+      },
+      "Left over right (default)": {
+        "options": [
+          {
+            "code": "0901",
+            "label": "Right over left",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      },
+      "Front buttonhole": {
+        "options": [
+          {
+            "code": "064P",
+            "label": "Handmade front buttonholes",
+            "price": 10.0
+          },
+          {
+            "code": "05G6",
+            "label": "Handmade round front buttonholes",
+            "price": 10.0
+          }
+        ],
+        "render": "spec"
+      }
+    },
+    "2. Lapel": {
+      "Lapel Style": {
+        "options": [
+          {
+            "code": "0001",
+            "label": "Notch",
+            "price": null
+          },
+          {
+            "code": "0002",
+            "label": "Peak",
+            "price": null
+          },
+          {
+            "code": "0005",
+            "label": "Shawl",
+            "price": null
+          },
+          {
+            "code": "0003",
+            "label": "Semi-notch",
+            "price": null
+          },
+          {
+            "code": "0004",
+            "label": "Semi-peak",
+            "price": null
+          },
+          {
+            "code": "0689",
+            "label": "Notch with high gorge",
+            "price": null
+          },
+          {
+            "code": "0686",
+            "label": "Sport collar G",
+            "price": null
+          },
+          {
+            "code": "0687",
+            "label": "Sport collar J",
+            "price": null
+          },
+          {
+            "code": "001K",
+            "label": "Round notch, round collar",
+            "price": null
+          },
+          {
+            "code": "001J",
+            "label": "Round peak, round collar",
+            "price": null
+          },
+          {
+            "code": "00JC",
+            "label": "E peak",
+            "price": null
+          },
+          {
+            "code": "0006",
+            "label": "Fish mouth",
+            "price": null
+          },
+          {
+            "code": "090A",
+            "label": "A shawl",
+            "price": null
+          },
+          {
+            "code": "090E",
+            "label": "E shawl",
+            "price": null
+          },
+          {
+            "code": "00F2",
+            "label": "Arc bottom shawl",
+            "price": null
+          },
+          {
+            "code": "00H4",
+            "label": "Upper narrow shawl",
+            "price": null
+          },
+          {
+            "code": "001R",
+            "label": "Diamond collar with seam on collar back",
+            "price": null
+          },
+          {
+            "code": "0009,09AN",
+            "label": "Band collar",
+            "price": null
+          },
+          {
+            "code": "001Q",
+            "label": "V shape with no collar",
+            "price": null
+          },
+          {
+            "code": "0008",
+            "label": "Mandarin collar",
+            "price": null
+          },
+          {
+            "code": "069P",
+            "label": "Notch lapel with removable stand collar (appointed material inside)",
+            "price": null
+          },
+          {
+            "code": "00KR",
+            "label": "Curved bow head under the same collar angle",
+            "price": null
+          }
+        ],
+        "render": "visible"
+      },
+      "Hole Position": {
+        "options": [
+          {
+            "code": "0544",
+            "label": "No",
+            "price": null
+          },
+          {
+            "code": "0541",
+            "label": "Left bttn hole",
+            "price": null
+          },
+          {
+            "code": "0545",
+            "label": "Double left bttn hole",
+            "price": null
+          },
+          {
+            "code": "0543",
+            "label": "Right & Left bttn hole",
+            "price": null
+          },
+          {
+            "code": "0542",
+            "label": "Right bttn hole",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      },
+      "Hole Style": {
+        "options": [
+          {
+            "code": "0551",
+            "label": "Straight",
+            "price": null
+          },
+          {
+            "code": "0552",
+            "label": "Regular round bttnhole",
+            "price": null
+          },
+          {
+            "code": "0554",
+            "label": "Real round",
+            "price": null
+          },
+          {
+            "code": "055K",
+            "label": "0.5cm lapel hole",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      },
+      "Handmade lapel buttonhole": {
+        "options": [
+          {
+            "code": "064Q",
+            "label": "Handmade lapel buttonhole",
+            "price": 10.0
+          }
+        ],
+        "render": "spec"
+      },
+      "Lapel detail design": {
+        "options": [
+          {
+            "code": "0535",
+            "label": "Pointed collar point (for peak lapel only)",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      },
+      "Lapel adjustment": {
+        "options": [
+          {
+            "code": "00B3",
+            "label": "Drop Gorge by 1.0cm",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      }
+    },
+    "3. Back Design": {
+      "(general)": {
+        "options": [
+          {
+            "code": "04N2",
+            "label": "Side",
+            "price": null
+          },
+          {
+            "code": "04N1",
+            "label": "Central",
+            "price": null
+          },
+          {
+            "code": "04N0",
+            "label": "No",
+            "price": null
+          },
+          {
+            "code": "04N3",
+            "label": "Side with strap",
+            "price": null
+          },
+          {
+            "code": "04H3",
+            "label": "Side with tap & strap",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      }
+    },
+    "4. Pocket": {
+      "Chest - Chest pocket": {
+        "options": [
+          {
+            "code": "0100",
+            "label": "No",
+            "price": null
+          },
+          {
+            "code": "0101",
+            "label": "Normal",
+            "price": null
+          },
+          {
+            "code": "0102",
+            "label": "Arc",
+            "price": null
+          },
+          {
+            "code": "0103",
+            "label": "Ship shape",
+            "price": null
+          },
+          {
+            "code": "0110",
+            "label": "Besom",
+            "price": null
+          },
+          {
+            "code": "0150",
+            "label": "Patch",
+            "price": null
+          },
+          {
+            "code": "011A",
+            "label": "Welt with 1.2 width",
+            "price": null
+          },
+          {
+            "code": "00J2",
+            "label": "Trapezoid",
+            "price": null
+          },
+          {
+            "code": "0157",
+            "label": "Only Regular right",
+            "price": null
+          },
+          {
+            "code": "0151",
+            "label": "Patch with bttn & bttnhole",
+            "price": null
+          },
+          {
+            "code": "0104",
+            "label": "Patch with ship opening",
+            "price": null
+          },
+          {
+            "code": "0111",
+            "label": "Besom with bttn",
+            "price": null
+          },
+          {
+            "code": "0153",
+            "label": "Patch with pleat & diamond flap",
+            "price": null
+          },
+          {
+            "code": "0121",
+            "label": "One pleat patch",
+            "price": null
+          },
+          {
+            "code": "0115",
+            "label": "Besom with zipper",
+            "price": null
+          },
+          {
+            "code": "015F",
+            "label": "One pleat, pointed flap with bttn & bttnhole",
+            "price": null
+          },
+          {
+            "code": "019N",
+            "label": "Italian curved breast pocket",
+            "price": null
+          }
+        ],
+        "render": "visible"
+      },
+      "Lower - Lower pocket": {
+        "options": [
+          {
+            "code": "0201",
+            "label": "Regular",
+            "price": null
+          },
+          {
+            "code": "0231",
+            "label": "Besom",
+            "price": null
+          },
+          {
+            "code": "02A1",
+            "label": "Regular slanted",
+            "price": null
+          },
+          {
+            "code": "02J1",
+            "label": "Patch",
+            "price": null
+          },
+          {
+            "code": "0200",
+            "label": "No",
+            "price": null
+          },
+          {
+            "code": "02B1",
+            "label": "Very slanted",
+            "price": null
+          },
+          {
+            "code": "02B2",
+            "label": "Very slanted lower & ticket",
+            "price": null
+          },
+          {
+            "code": "02C1",
+            "label": "Extreme slanted",
+            "price": null
+          },
+          {
+            "code": "02C2",
+            "label": "Extreme slant & ticket",
+            "price": null
+          },
+          {
+            "code": "02C6",
+            "label": "Extreme slant besom",
+            "price": null
+          },
+          {
+            "code": "02B6",
+            "label": "Very slant besom",
+            "price": null
+          },
+          {
+            "code": "0237",
+            "label": "Diamond flap",
+            "price": null
+          },
+          {
+            "code": "0211",
+            "label": "Diamond flaps with bttns",
+            "price": null
+          },
+          {
+            "code": "02A6",
+            "label": "Slant, trapezoid flap lower & ticket",
+            "price": null
+          },
+          {
+            "code": "02R9",
+            "label": "Front curved flap",
+            "price": null
+          },
+          {
+            "code": "0267",
+            "label": "2.5CM welt",
+            "price": null
+          },
+          {
+            "code": "0230",
+            "label": "Besom special",
+            "price": null
+          },
+          {
+            "code": "02M1",
+            "label": "Besom with tab and button",
+            "price": null
+          },
+          {
+            "code": "02J0",
+            "label": "Patch with Ship shape",
+            "price": null
+          },
+          {
+            "code": "02K0",
+            "label": "Curved patch",
+            "price": null
+          },
+          {
+            "code": "02M8",
+            "label": "Regular slant patch",
+            "price": null
+          },
+          {
+            "code": "02K4",
+            "label": "Patch with one pleat",
+            "price": null
+          },
+          {
+            "code": "02L2",
+            "label": "Patch with flap",
+            "price": null
+          },
+          {
+            "code": "02L4",
+            "label": "Patch with pleat, Diamond flap & bttn",
+            "price": null
+          },
+          {
+            "code": "02K5",
+            "label": "Patch single pleat with diamond flap",
+            "price": null
+          },
+          {
+            "code": "02KY",
+            "label": "Italian sticker boat type",
+            "price": null
+          }
+        ],
+        "render": "visible"
+      },
+      "Inner - Inside pocket shape": {
+        "options": [
+          {
+            "code": "0801",
+            "label": "Regular inner pocket",
+            "price": null
+          },
+          {
+            "code": "0803",
+            "label": "Fashion inner pocket",
+            "price": null
+          },
+          {
+            "code": "080X",
+            "label": "Inner pocket combination",
+            "price": null
+          },
+          {
+            "code": "0802",
+            "label": "MP3 pocket combination",
+            "price": null
+          },
+          {
+            "code": "0804",
+            "label": "Simple Inner pockets",
+            "price": null
+          },
+          {
+            "code": "0806",
+            "label": "No",
+            "price": null
+          },
+          {
+            "code": "0808",
+            "label": "Inner pocket B",
+            "price": null
+          },
+          {
+            "code": "080H",
+            "label": "Inner pocket L",
+            "price": null
+          },
+          {
+            "code": "080P",
+            "label": "Inner pocket S",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      },
+      "Lower - Ticket pocket": {
+        "options": [
+          {
+            "code": "027H",
+            "label": "No",
+            "price": null
+          },
+          {
+            "code": "0270",
+            "label": "Regular",
+            "price": null
+          },
+          {
+            "code": "0271",
+            "label": "Right welt",
+            "price": null
+          },
+          {
+            "code": "027A",
+            "label": "Besom",
+            "price": null
+          },
+          {
+            "code": "027G",
+            "label": "Regular left",
+            "price": null
+          },
+          {
+            "code": "027D",
+            "label": "Left welt",
+            "price": null
+          },
+          {
+            "code": "027F",
+            "label": "Left besom",
+            "price": null
+          },
+          {
+            "code": "MXFZYP",
+            "label": "Left & right",
+            "price": null
+          },
+          {
+            "code": "027B",
+            "label": "Left & right welt",
+            "price": null
+          },
+          {
+            "code": "027L",
+            "label": "Left & right besom",
+            "price": null
+          },
+          {
+            "code": "0278",
+            "label": "Right Patch",
+            "price": null
+          },
+          {
+            "code": "02A2",
+            "label": "Regular slant",
+            "price": null
+          },
+          {
+            "code": "0282",
+            "label": "Slant welt",
+            "price": null
+          },
+          {
+            "code": "02R4",
+            "label": "Slant besom",
+            "price": null
+          },
+          {
+            "code": "028A",
+            "label": "Left slant welt",
+            "price": null
+          },
+          {
+            "code": "02RU",
+            "label": "Left slant besom",
+            "price": null
+          },
+          {
+            "code": "02A9",
+            "label": "Left & right slant",
+            "price": null
+          },
+          {
+            "code": "027C",
+            "label": "Left & right slant welt",
+            "price": null
+          },
+          {
+            "code": "09P6",
+            "label": "Left & right slant besom with flap",
+            "price": null
+          }
+        ],
+        "render": "visible"
+      },
+      "Chest - Chest pocket design": {
+        "options": [
+          {
+            "code": "0311",
+            "label": "Puff breast pocket",
+            "price": null
+          },
+          {
+            "code": "031A",
+            "label": "Puff breast pocket fabric-",
+            "price": null
+          }
+        ],
+        "render": "minor"
+      },
+      "Inner - Inner pocket bartack": {
+        "options": [
+          {
+            "code": "0861",
+            "label": "I shape bartack",
+            "price": null
+          },
+          {
+            "code": "0862",
+            "label": "D shape bartack",
+            "price": null
+          },
+          {
+            "code": "0864",
+            "label": "X shape bartack",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      }
+    },
+    "5. Collar Felt": {
+      "(general)": {
+        "options": [
+          {
+            "code": "0672",
+            "label": "Felt",
+            "price": null
+          },
+          {
+            "code": "0674",
+            "label": "Fabric",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      }
+    },
+    "6. Contrast": {
+      "Lapel": {
+        "options": [
+          {
+            "code": "0651",
+            "label": "Satin collar top",
+            "price": null
+          },
+          {
+            "code": "0652",
+            "label": "Satin lapel",
+            "price": null
+          },
+          {
+            "code": "065V",
+            "label": "Collar",
+            "price": null
+          },
+          {
+            "code": "065Q",
+            "label": "Lapel",
+            "price": null
+          },
+          {
+            "code": "065Q,065V",
+            "label": "Lapel & collar",
+            "price": null
+          },
+          {
+            "code": "09J7",
+            "label": "1cm collar edge",
+            "price": null
+          },
+          {
+            "code": "09J9",
+            "label": "1cm lapel edge",
+            "price": null
+          },
+          {
+            "code": "09J9,09J7",
+            "label": "Lapel & collar 1cm edge",
+            "price": null
+          }
+        ],
+        "render": "visible"
+      },
+      "Pocket": {
+        "options": [
+          {
+            "code": "065K",
+            "label": "Appointed upper 1cm-",
+            "price": null
+          },
+          {
+            "code": "0659",
+            "label": "Appointed besom-",
+            "price": null
+          },
+          {
+            "code": "0668",
+            "label": "Appointed ticket besom-",
+            "price": null
+          },
+          {
+            "code": "0659,0668",
+            "label": "Appointed lower & ticket besom-",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      },
+      "Tuxedo": {
+        "options": [
+          {
+            "code": "071Q",
+            "label": "Satin lapel & pocket seam & button wrapping-",
+            "price": null
+          }
+        ],
+        "render": "visible"
+      },
+      "Covered button": {
+        "options": [
+          {
+            "code": "0635",
+            "label": "Match fabric",
+            "price": null
+          },
+          {
+            "code": "063A",
+            "label": "Appointed",
+            "price": null
+          }
+        ],
+        "render": "visible"
+      },
+      "Others": {
+        "options": [
+          {
+            "code": "06A5",
+            "label": "Elbow pad-",
+            "price": null
+          },
+          {
+            "code": "06S5",
+            "label": "Shoulder patch",
+            "price": null
+          },
+          {
+            "code": "092B",
+            "label": "Cuff",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      }
+    },
+    "7. Sleeve": {
+      "Sleeve slit": {
+        "options": [
+          {
+            "code": "AAAI",
+            "label": "Normal",
+            "price": null
+          },
+          {
+            "code": "AAAJ",
+            "label": "Real",
+            "price": null
+          },
+          {
+            "code": "AAAK",
+            "label": "No",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      },
+      "Sleeve Bttnhole": {
+        "options": [
+          {
+            "code": "AAAM",
+            "label": "Normal",
+            "price": null
+          },
+          {
+            "code": "AAAN",
+            "label": "Normal slanted",
+            "price": null
+          },
+          {
+            "code": "AAAO",
+            "label": "No",
+            "price": null
+          },
+          {
+            "code": "AAAP",
+            "label": "Real",
+            "price": null
+          },
+          {
+            "code": "AAAQ",
+            "label": "Real slanted",
+            "price": null
+          },
+          {
+            "code": "AABR",
+            "label": "No buttonhole, no button",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      },
+      "Sleeve slit fabric": {
+        "options": [
+          {
+            "code": "AAQD",
+            "label": "No sleeve vent fabric",
+            "price": null
+          },
+          {
+            "code": "AAQE",
+            "label": "Single sleeve vent fabric",
+            "price": null
+          },
+          {
+            "code": "AAQF",
+            "label": "Double sleeve vent fabric",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      },
+      "Sleeve bttn": {
+        "options": [
+          {
+            "code": "0626",
+            "label": "No",
+            "price": null
+          },
+          {
+            "code": "0623",
+            "label": "1 button (32L)",
+            "price": null
+          },
+          {
+            "code": "0629",
+            "label": "2 flat",
+            "price": null
+          },
+          {
+            "code": "0624",
+            "label": "3 flat",
+            "price": null
+          },
+          {
+            "code": "0621",
+            "label": "4 flat",
+            "price": null
+          },
+          {
+            "code": "0627",
+            "label": "5 flat",
+            "price": null
+          },
+          {
+            "code": "06X1",
+            "label": "6 flat",
+            "price": null
+          },
+          {
+            "code": "0630",
+            "label": "2 kissing",
+            "price": null
+          },
+          {
+            "code": "0625",
+            "label": "3 kissing",
+            "price": null
+          },
+          {
+            "code": "0622",
+            "label": "4 kissing",
+            "price": null
+          },
+          {
+            "code": "0628",
+            "label": "5 kissing",
+            "price": null
+          },
+          {
+            "code": "062Z",
+            "label": "6 kissing",
+            "price": null
+          }
+        ],
+        "render": "minor"
+      },
+      "Cuff style / Elbow / Buttonhole design": {
+        "options": [
+          {
+            "code": "0618",
+            "label": "Western hem",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      },
+      "Elbow: No (default)": {
+        "options": [
+          {
+            "code": "0609",
+            "label": "Round",
+            "price": null
+          },
+          {
+            "code": "0610",
+            "label": "Oval",
+            "price": null
+          },
+          {
+            "code": "06S8",
+            "label": "Handmade sleeve buttonholes",
+            "price": 18.0
+          },
+          {
+            "code": "06S9",
+            "label": "Handmade round buttonholes",
+            "price": 20.0
+          }
+        ],
+        "render": "spec"
+      }
+    },
+    "8. Lining": {
+      "Lining Style": {
+        "options": [
+          {
+            "code": "AAQL",
+            "label": "Full",
+            "price": null
+          },
+          {
+            "code": "AA2Y",
+            "label": "½ lining with piping",
+            "price": null
+          },
+          {
+            "code": "AA2Z",
+            "label": "½ lining with inner pic stitch",
+            "price": null
+          },
+          {
+            "code": "AA3Y",
+            "label": "⅓ lining with piping",
+            "price": null
+          },
+          {
+            "code": "AA3Z",
+            "label": "⅓ lining with inner pic stitch",
+            "price": null
+          },
+          {
+            "code": "AA4Y",
+            "label": "¼ lining with piping",
+            "price": null
+          },
+          {
+            "code": "AA4Z",
+            "label": "¼ lining with inner pic stitch",
+            "price": null
+          },
+          {
+            "code": "AAYY",
+            "label": "Only sleeve lining with piping",
+            "price": null
+          },
+          {
+            "code": "AAYZ",
+            "label": "Only sleeve lining with pic stitch",
+            "price": null
+          },
+          {
+            "code": "AAWY",
+            "label": "No lining with piping",
+            "price": null
+          },
+          {
+            "code": "AAWZ",
+            "label": "No lining with pic stitch",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      },
+      "Facing": {
+        "options": [
+          {
+            "code": "0701",
+            "label": "Inner facing A",
+            "price": null
+          },
+          {
+            "code": "0701,0852",
+            "label": "Straight with edge",
+            "price": null
+          },
+          {
+            "code": "0702",
+            "label": "Inner facing B",
+            "price": null
+          },
+          {
+            "code": "0702,0852",
+            "label": "Curved with edge",
+            "price": null
+          },
+          {
+            "code": "0866,0706",
+            "label": "Inner facing F with edge",
+            "price": null
+          },
+          {
+            "code": "0791",
+            "label": "Italian casual curved facing",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      },
+      "Body lining / Piping / Sweat pad / Sleeve lining": {
+        "options": [
+          {
+            "code": "0714",
+            "label": "Regular Lining",
+            "price": null
+          },
+          {
+            "code": "072D",
+            "label": "Artistic Lining (Placement)",
+            "price": null
+          },
+          {
+            "code": "072N",
+            "label": "Artistic Lining (Recycled)",
+            "price": null
+          },
+          {
+            "code": "072D",
+            "label": "Appointed DIY Printing-",
+            "price": null
+          },
+          {
+            "code": "085F",
+            "label": "Customer appointed piping",
+            "price": null
+          },
+          {
+            "code": "074G",
+            "label": "Sweat pad: No",
+            "price": null
+          },
+          {
+            "code": "0742",
+            "label": "Triangle shape",
+            "price": null
+          },
+          {
+            "code": "0745",
+            "label": "Round shape",
+            "price": null
+          },
+          {
+            "code": "0747",
+            "label": "Round shape (fabric)",
+            "price": null
+          },
+          {
+            "code": "0750",
+            "label": "U shape",
+            "price": null
+          },
+          {
+            "code": "0752",
+            "label": "U shape (fabric)",
+            "price": null
+          },
+          {
+            "code": "0724",
+            "label": "Sleeve lining: Regular Lining",
+            "price": null
+          },
+          {
+            "code": "072M",
+            "label": "Artistic Lining",
+            "price": null
+          },
+          {
+            "code": "072M",
+            "label": "Appointed sleeve DIY Printing-",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      }
+    },
+    "9. Bttn & Thread": {
+      "Bttn thread - Btning style": {
+        "options": [],
+        "render": "spec"
+      },
+      "PIC/TOP STITCH - Inner pic stitch": {
+        "options": [],
+        "render": "spec"
+      },
+      "PIC/TOP STITCH - Outer pic stitch": {
+        "options": [
+          {
+            "code": "0638",
+            "label": "Button Choice",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      },
+      "Other position buttons": {
+        "options": [],
+        "render": "spec"
+      },
+      "Bttn thread - DIY": {
+        "options": [],
+        "render": "spec"
+      },
+      "Btnhole thread": {
+        "options": [],
+        "render": "spec"
+      }
+    },
+    "10. Monogram & Label": {
+      "Brand (options)": {
+        "options": [],
+        "render": "spec"
+      },
+      "Fabric Label": {
+        "options": [],
+        "render": "spec"
+      },
+      "Selected: GC Brand + Name Label": {
+        "options": [],
+        "render": "spec"
+      },
+      "Name / Position / Content": {
+        "options": [],
+        "render": "spec"
+      },
+      "Name label -> 2cm above left inner pocket -> FYBS072D": {
+        "options": [],
+        "render": "spec"
+      },
+      "Care label -> Inside left inner pocket -> FYBS022W": {
+        "options": [],
+        "render": "spec"
+      },
+      "Origin label -> No origin label": {
+        "options": [],
+        "render": "spec"
+      },
+      "Monogram placement / Other": {
+        "options": [],
+        "render": "spec"
+      },
+      "In fabric, upon left inner pocket": {
+        "options": [],
+        "render": "spec"
+      },
+      "Collar felt: in fabric, upon right inner pocket": {
+        "options": [],
+        "render": "spec"
+      },
+      "Name label, 2cm upon left inner pocket": {
+        "options": [],
+        "render": "spec"
+      },
+      "In lining, upon left / right inner pocket": {
+        "options": [],
+        "render": "spec"
+      },
+      "Name label appointed": {
+        "options": [],
+        "render": "spec"
+      },
+      "Other: Fitting adjustment, Handmade option, Others": {
+        "options": [],
+        "render": "spec"
+      }
+    }
+  },
+  "pants": {
+    "1. Style": {
+      "Pleat style": {
+        "options": [
+          {
+            "code": "302L",
+            "label": "No pleat no dart",
+            "price": null
+          },
+          {
+            "code": "302M",
+            "label": "No pleat, single dart",
+            "price": null
+          },
+          {
+            "code": "302Y",
+            "label": "No pleat, double darts",
+            "price": null
+          },
+          {
+            "code": "3020",
+            "label": "No",
+            "price": null
+          },
+          {
+            "code": "3022",
+            "label": "Single, toward fly",
+            "price": null
+          },
+          {
+            "code": "3021",
+            "label": "Single, toward side",
+            "price": null
+          },
+          {
+            "code": "3024",
+            "label": "Double, toward fly",
+            "price": null
+          },
+          {
+            "code": "3023",
+            "label": "Double, toward side",
+            "price": null
+          }
+        ],
+        "render": "visible"
+      },
+      "Pleat depth": {
+        "options": [
+          {
+            "code": "302E",
+            "label": "2.5cm",
+            "price": null
+          },
+          {
+            "code": "302Z",
+            "label": "1.5cm",
+            "price": null
+          },
+          {
+            "code": "302H",
+            "label": "2.0cm",
+            "price": null
+          },
+          {
+            "code": "302F",
+            "label": "3.2cm",
+            "price": null
+          },
+          {
+            "code": "302G",
+            "label": "3.8cm",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      },
+      "Lining": {
+        "options": [
+          {
+            "code": "3500",
+            "label": "No",
+            "price": null
+          },
+          {
+            "code": "3502",
+            "label": "Front half, pocket inside",
+            "price": null
+          },
+          {
+            "code": "3504",
+            "label": "Front & back half, pocket inside",
+            "price": null
+          },
+          {
+            "code": "3506",
+            "label": "Front & back full, pocket inside",
+            "price": null
+          },
+          {
+            "code": "3501",
+            "label": "Front half, pocket outside",
+            "price": null
+          },
+          {
+            "code": "3503",
+            "label": "Front & back half, pocket outside",
+            "price": null
+          },
+          {
+            "code": "3505",
+            "label": "Front & back full, pocket outside",
+            "price": null
+          },
+          {
+            "code": "350D",
+            "label": "Appointed pant lining",
+            "price": null
+          },
+          {
+            "code": "3514",
+            "label": "Back crotch: No",
+            "price": null
+          },
+          {
+            "code": "3515",
+            "label": "Fabric",
+            "price": null
+          },
+          {
+            "code": "3518",
+            "label": "Matched lining",
+            "price": null
+          },
+          {
+            "code": "3516",
+            "label": "Lining",
+            "price": null
+          },
+          {
+            "code": "35C1",
+            "label": "Appointed pocket lining-",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      }
+    },
+    "2. Pocket": {
+      "Front Pocket": {
+        "options": [
+          {
+            "code": "3100",
+            "label": "2.0cm slant",
+            "price": null
+          },
+          {
+            "code": "3104",
+            "label": "2.5cm slant",
+            "price": null
+          },
+          {
+            "code": "3101",
+            "label": "3.2cm slant",
+            "price": null
+          },
+          {
+            "code": "3132",
+            "label": "Welt",
+            "price": null
+          },
+          {
+            "code": "3131",
+            "label": "Besom",
+            "price": null
+          },
+          {
+            "code": "3130",
+            "label": "Sideseam",
+            "price": null
+          },
+          {
+            "code": "3120",
+            "label": "2.0cm slant with stripe",
+            "price": null
+          },
+          {
+            "code": "3124",
+            "label": "2.5cm slant with stripe",
+            "price": null
+          },
+          {
+            "code": "3121",
+            "label": "3.2cm slant with stripe",
+            "price": null
+          },
+          {
+            "code": "3102",
+            "label": "5.1cm slant",
+            "price": null
+          },
+          {
+            "code": "3122",
+            "label": "5.1cm slant with stripe",
+            "price": null
+          },
+          {
+            "code": "3133",
+            "label": "Square jeans",
+            "price": null
+          },
+          {
+            "code": "3134",
+            "label": "Diamond jeans",
+            "price": null
+          },
+          {
+            "code": "3135",
+            "label": "Arc jeans",
+            "price": null
+          },
+          {
+            "code": "3136",
+            "label": "Round jeans",
+            "price": null
+          },
+          {
+            "code": "313C",
+            "label": "No",
+            "price": null
+          }
+        ],
+        "render": "visible"
+      },
+      "Back pocket": {
+        "options": [
+          {
+            "code": "320B",
+            "label": "Right & left besom (left bttn)",
+            "price": null
+          },
+          {
+            "code": "3200",
+            "label": "Double besom",
+            "price": null
+          },
+          {
+            "code": "3201",
+            "label": "Besom with bttn",
+            "price": null
+          },
+          {
+            "code": "3215",
+            "label": "Pointed flap, bttnhole & bttn",
+            "price": null
+          },
+          {
+            "code": "320P",
+            "label": "Welt with zipper",
+            "price": null
+          },
+          {
+            "code": "3220",
+            "label": "Welt",
+            "price": null
+          },
+          {
+            "code": "320G",
+            "label": "Right besom with bttn",
+            "price": null
+          },
+          {
+            "code": "31A0",
+            "label": "No",
+            "price": null
+          },
+          {
+            "code": "3221",
+            "label": "Welt with bttn",
+            "price": null
+          },
+          {
+            "code": "32G4",
+            "label": "Left welt bttn & bttnhole",
+            "price": null
+          },
+          {
+            "code": "320A",
+            "label": "Right & left besom (right bttn)",
+            "price": null
+          },
+          {
+            "code": "32C7",
+            "label": "Left besom bttn & bttnhole",
+            "price": null
+          },
+          {
+            "code": "3206",
+            "label": "Besom decorative",
+            "price": null
+          },
+          {
+            "code": "320F",
+            "label": "Right besom only",
+            "price": null
+          },
+          {
+            "code": "320E",
+            "label": "Besom, no right",
+            "price": null
+          },
+          {
+            "code": "3210",
+            "label": "With flap",
+            "price": null
+          },
+          {
+            "code": "3211",
+            "label": "Regular",
+            "price": null
+          },
+          {
+            "code": "3213",
+            "label": "Diamond flap, bttn & bttnhole",
+            "price": null
+          },
+          {
+            "code": "3230",
+            "label": "Patch with pointed",
+            "price": null
+          },
+          {
+            "code": "3231",
+            "label": "Point patch, with bttn",
+            "price": null
+          },
+          {
+            "code": "32C2",
+            "label": "Besom, round tab & bttn",
+            "price": null
+          },
+          {
+            "code": "320D",
+            "label": "Right & left besom with tab & bttn",
+            "price": null
+          },
+          {
+            "code": "3202",
+            "label": "Besom, tab & bttn",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      },
+      "Watch / Coin / Side Seam / Pocket knot": {
+        "options": [
+          {
+            "code": "3169",
+            "label": "Watch: No",
+            "price": null
+          },
+          {
+            "code": "3180",
+            "label": "Regular right",
+            "price": null
+          },
+          {
+            "code": "3181",
+            "label": "Right welt",
+            "price": null
+          },
+          {
+            "code": "3171",
+            "label": "Left welt",
+            "price": null
+          },
+          {
+            "code": "3188",
+            "label": "Right besom",
+            "price": null
+          },
+          {
+            "code": "3178",
+            "label": "Left besom",
+            "price": null
+          },
+          {
+            "code": "3186",
+            "label": "Right with diamond flap & bttn",
+            "price": null
+          },
+          {
+            "code": "3533",
+            "label": "Coin: No",
+            "price": null
+          },
+          {
+            "code": "3531",
+            "label": "Left",
+            "price": null
+          },
+          {
+            "code": "3530",
+            "label": "Right",
+            "price": null
+          },
+          {
+            "code": "3532",
+            "label": "Left & right",
+            "price": null
+          },
+          {
+            "code": "322Q",
+            "label": "Side seam pocket: 17cm processed letter pleated bag w/ right angle cover (special clean",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      },
+      "board)": {
+        "options": [
+          {
+            "code": "3191",
+            "label": "Front pocket: I shape bartack",
+            "price": null
+          },
+          {
+            "code": "3192",
+            "label": "Front pocket: D shape bartack",
+            "price": null
+          },
+          {
+            "code": "3291",
+            "label": "Hip pocket: I pocket edge",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      }
+    },
+    "3. Bottom": {
+      "Bottom style": {
+        "options": [
+          {
+            "code": "3600",
+            "label": "5.0cm",
+            "price": null
+          },
+          {
+            "code": "3607",
+            "label": "6.4cm",
+            "price": null
+          },
+          {
+            "code": "3608",
+            "label": "7.0cm",
+            "price": null
+          },
+          {
+            "code": "3609",
+            "label": "7.6cm",
+            "price": null
+          },
+          {
+            "code": "360H",
+            "label": "9.0cm",
+            "price": null
+          },
+          {
+            "code": "3602",
+            "label": "3.2cm cuff",
+            "price": null
+          },
+          {
+            "code": "3603",
+            "label": "3.8cm cuff",
+            "price": null
+          },
+          {
+            "code": "3604",
+            "label": "4.4cm cuff",
+            "price": null
+          },
+          {
+            "code": "3605",
+            "label": "5.1cm cuff",
+            "price": null
+          },
+          {
+            "code": "3601",
+            "label": "11.5cm extra fabric",
+            "price": null
+          },
+          {
+            "code": "360A",
+            "label": "13.0cm extra fabric",
+            "price": null
+          },
+          {
+            "code": "360K",
+            "label": "4.0cm inner edge fold slanted",
+            "price": null
+          },
+          {
+            "code": "36AF",
+            "label": "7.0cm inner edge fold slanted",
+            "price": null
+          },
+          {
+            "code": "362M",
+            "label": "Fixed bottom, 2.5cm top stitch",
+            "price": null
+          }
+        ],
+        "render": "visible"
+      },
+      "Heel guard": {
+        "options": [
+          {
+            "code": "33BB",
+            "label": "No",
+            "price": null
+          },
+          {
+            "code": "3611",
+            "label": "Heel guard",
+            "price": null
+          },
+          {
+            "code": "3614",
+            "label": "Whole circle heel guard",
+            "price": null
+          },
+          {
+            "code": "361L",
+            "label": "Whole circle heel guard (finished ribbon)",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      }
+    },
+    "4. Waist": {
+      "Extension & hook": {
+        "options": [
+          {
+            "code": "3412",
+            "label": "Sharp, hook & btn",
+            "price": null
+          },
+          {
+            "code": "3413",
+            "label": "Round, hook & btn",
+            "price": null
+          },
+          {
+            "code": "342A",
+            "label": "Square, hook & btn",
+            "price": null
+          },
+          {
+            "code": "3416",
+            "label": "Double sharp",
+            "price": null
+          },
+          {
+            "code": "3415",
+            "label": "Double round",
+            "price": null
+          },
+          {
+            "code": "3417",
+            "label": "Double square",
+            "price": null
+          },
+          {
+            "code": "3411",
+            "label": "No extension, with btn",
+            "price": null
+          },
+          {
+            "code": "3410",
+            "label": "No extension, with hook",
+            "price": null
+          },
+          {
+            "code": "342T",
+            "label": "Sharp, double hooks",
+            "price": null
+          },
+          {
+            "code": "342R",
+            "label": "Round, double hooks",
+            "price": null
+          },
+          {
+            "code": "3414",
+            "label": "Square, double hooks",
+            "price": null
+          },
+          {
+            "code": "342L",
+            "label": "Sharp, double btn & hook",
+            "price": null
+          },
+          {
+            "code": "34AB",
+            "label": "Round, double btn & hook",
+            "price": null
+          },
+          {
+            "code": "342D",
+            "label": "Square, double bttn & hook",
+            "price": null
+          },
+          {
+            "code": "348A",
+            "label": "Double extension, hook & btn",
+            "price": null
+          },
+          {
+            "code": "34GE",
+            "label": "Square extension, double buttonholes/buttons top & bottom, double hooks",
+            "price": null
+          },
+          {
+            "code": "356R",
+            "label": "Left/right HW pointed extension with buckles (waist can’t adjust)-",
+            "price": null
+          },
+          {
+            "code": "34KE",
+            "label": "HW pointed extension with buckle and five round holes, buckle appointed-",
+            "price": null
+          },
+          {
+            "code": "34GF",
+            "label": "HW slender round sword head lock eye nail buckle, 3.0cm spacing, waist width 5.0cm",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      },
+      "required": {
+        "options": [],
+        "render": "spec"
+      },
+      "Zipper / Fly": {
+        "options": [
+          {
+            "code": "3420",
+            "label": "Nylon",
+            "price": null
+          },
+          {
+            "code": "3421",
+            "label": "Metal",
+            "price": null
+          },
+          {
+            "code": "3422",
+            "label": "Bttns",
+            "price": null
+          },
+          {
+            "code": "3400",
+            "label": "Fly: Fish-mouth",
+            "price": null
+          },
+          {
+            "code": "3402",
+            "label": "Fish claw",
+            "price": null
+          },
+          {
+            "code": "3403",
+            "label": "French",
+            "price": null
+          },
+          {
+            "code": "3401",
+            "label": "Straight",
+            "price": null
+          },
+          {
+            "code": "3406",
+            "label": "Pointed",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      },
+      "Belt loop": {
+        "options": [
+          {
+            "code": "3329",
+            "label": "No",
+            "price": null
+          },
+          {
+            "code": "3330",
+            "label": "Regular",
+            "price": null
+          },
+          {
+            "code": "3332",
+            "label": "2.0cm",
+            "price": null
+          },
+          {
+            "code": "3331",
+            "label": "Double",
+            "price": null
+          },
+          {
+            "code": "3618",
+            "label": "Only one in right",
+            "price": null
+          },
+          {
+            "code": "333E",
+            "label": "X-style on front, others normal",
+            "price": null
+          },
+          {
+            "code": "3684",
+            "label": "Only one in right front waist, 5CM from fly, no others",
+            "price": null
+          },
+          {
+            "code": "361N",
+            "label": "Only right waist 2cm from front door with one strap, no others",
+            "price": null
+          },
+          {
+            "code": "3683",
+            "label": "Only one in right front waist, move 1cm toward fly, no others",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      },
+      "Inner Face / Adjustment / Waist detail / Waist width": {
+        "options": [
+          {
+            "code": "3495",
+            "label": "Appointed waistband fabric",
+            "price": null
+          },
+          {
+            "code": "3430",
+            "label": "Standard",
+            "price": null
+          },
+          {
+            "code": "3440",
+            "label": "Regular with snugtex",
+            "price": null
+          },
+          {
+            "code": "3449",
+            "label": "Standard, Snugtex & bttn",
+            "price": null
+          },
+          {
+            "code": "3443",
+            "label": "Gripper",
+            "price": null
+          },
+          {
+            "code": "3441",
+            "label": "Standard, piping & snugtex",
+            "price": null
+          },
+          {
+            "code": "344E",
+            "label": "Appointed-Lining",
+            "price": null
+          },
+          {
+            "code": "3434",
+            "label": "Pleated Curtain",
+            "price": null
+          },
+          {
+            "code": "3445",
+            "label": "Pleat with snugtex & bttn",
+            "price": null
+          },
+          {
+            "code": "3435",
+            "label": "Pleat with Griplets",
+            "price": null
+          },
+          {
+            "code": "343C",
+            "label": "Appointed",
+            "price": null
+          },
+          {
+            "code": "344H",
+            "label": "Appointed finished waistband-",
+            "price": null
+          },
+          {
+            "code": "3349",
+            "label": "Adjustment: Standard",
+            "price": null
+          },
+          {
+            "code": "3351",
+            "label": "Square side adjust button",
+            "price": null
+          },
+          {
+            "code": "3352",
+            "label": "Adjust buckle number",
+            "price": null
+          },
+          {
+            "code": "33TG",
+            "label": "Adjustable buckle (with belt loop)-",
+            "price": null
+          },
+          {
+            "code": "339K",
+            "label": "Add HW square head adjustment pliers at waist (special clean plate, 6.5cm net)-",
+            "price": null
+          },
+          {
+            "code": "337R",
+            "label": "Add HW square adjusted tab with buckle at back middle waist-",
+            "price": null
+          },
+          {
+            "code": "337S",
+            "label": "Add HW pointed adjusted tab on back middle waist, 4 buttons total",
+            "price": null
+          },
+          {
+            "code": "301C",
+            "label": "Waist width: 3.5cm",
+            "price": null
+          },
+          {
+            "code": "301E",
+            "label": "3.8cm",
+            "price": null
+          },
+          {
+            "code": "301D",
+            "label": "4.0cm",
+            "price": null
+          },
+          {
+            "code": "3015",
+            "label": "4.5cm",
+            "price": null
+          },
+          {
+            "code": "301F",
+            "label": "5.0cm",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      }
+    },
+    "5. Contrast": {
+      "(general)": {
+        "options": [
+          {
+            "code": "3140",
+            "label": "Front pocket besom: Appointed-",
+            "price": null
+          },
+          {
+            "code": "316G",
+            "label": "Only front besom",
+            "price": null
+          },
+          {
+            "code": "3154",
+            "label": "Front edge: 0.3cm fabric cover piping-",
+            "price": null
+          },
+          {
+            "code": "314A",
+            "label": "Side fabric: Cushion layer fabrics appointed-",
+            "price": null
+          },
+          {
+            "code": "318M",
+            "label": "Watch pocket: Appointed outside besom-",
+            "price": null
+          },
+          {
+            "code": "318C",
+            "label": "Appointed outside watch pocket flap-",
+            "price": null
+          },
+          {
+            "code": "325B",
+            "label": "Back pocket: Appointed besom-",
+            "price": null
+          },
+          {
+            "code": "3348",
+            "label": "Loop fabric appointed-",
+            "price": null
+          },
+          {
+            "code": "3382",
+            "label": "Side seam with fabric (1.2cm width)-",
+            "price": null
+          },
+          {
+            "code": "33A2",
+            "label": "Appointed Waistband-",
+            "price": null
+          },
+          {
+            "code": "3458",
+            "label": "Fabric covered button (all buttons)",
+            "price": null
+          },
+          {
+            "code": "3453",
+            "label": "Back pocket btn matched",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      }
+    },
+    "6. Bttn & Thread": {
+      "Style - Sewing": {
+        "options": [],
+        "render": "spec"
+      },
+      "Stitching front pocket - STYLE": {
+        "options": [
+          {
+            "code": "3454",
+            "label": "Button Choice",
+            "price": null
+          }
+        ],
+        "render": "spec"
+      },
+      "Style - Bttn thread": {
+        "options": [],
+        "render": "spec"
+      },
+      "Stitching front pocket - Appointed top stitch-": {
+        "options": [],
+        "render": "spec"
+      },
+      "Style - Bttnhole thread": {
+        "options": [],
+        "render": "spec"
+      }
+    },
+    "7. Monogram & Label": {
+      "Label: Default  |  GC No Name Label     (Selected: Default)": {
+        "options": [],
+        "render": "spec"
+      },
+      "Fabric label -> on the middle of the front right pocket": {
+        "options": [],
+        "render": "spec"
+      },
+      "Fly -> in name label at right front inner waistband": {
+        "options": [],
+        "render": "spec"
+      },
+      "2cm above the centre of right back pocket": {
+        "options": [],
+        "render": "spec"
+      }
+    },
+    "8. Other": {
+      "Fitting adjustment, Others": {
+        "options": [],
+        "render": "spec"
+      }
+    }
+  }
+}

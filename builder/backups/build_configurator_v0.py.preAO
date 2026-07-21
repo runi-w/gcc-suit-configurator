@@ -1,0 +1,464 @@
+#!/usr/bin/env python3
+"""Gage Court — Suit Configurator v0. Guided picker in front of the normal-warp compositor.
+Fabric + Style + Lapel drive the live preview; buttons/lining/pockets/monogram feed the KuteTailor
+order spec + indicative price. Self-contained (data-URIs). Reuses the validated compositor."""
+import base64, io, json, os
+from PIL import Image
+
+HM = "/Users/runiwillner/Desktop/GCC_House_Model"
+ROOT = "/Users/runiwillner/Desktop/GCC_Fabric_Handoff"
+CFG = f"{HM}/config"
+OUT = "/private/tmp/claude-501/-Users-runiwillner/56ab0edc-7dd6-43c2-84c4-01a9de10c0b3/scratchpad/configurator-v0.html"
+AN = "/private/tmp/claude-501/-Users-runiwillner/56ab0edc-7dd6-43c2-84c4-01a9de10c0b3/scratchpad/fabric_analysis.json"
+W = 700
+
+CUTS = [
+    ("notch", "front_2button_notch", True), ("peak", "front_2button_peak", True),
+    ("one", "front_1button_peak", True), ("db", "front_doublebreasted", False),
+    ("three", "front_3piece_vest", False),
+]
+# Fabrics come from prep_fabrics.py (real Elite Wool scans, 300 DPI -> true cm scale).
+FAB_DIR = "fabric_build"
+OVERSAMPLE = 4          # tile is baked at 4x its on-screen size -> runtime density is a constant
+FIGURE_CM = 183.0       # model height, for px-per-cm on the render
+FIGURE_FRAC = 0.93      # fraction of frame height the figure occupies
+
+def datauri(img, fmt, **kw):
+    b = io.BytesIO(); img.save(b, fmt, **kw)
+    return f"data:image/{'jpeg' if fmt=='JPEG' else 'png'};base64," + base64.b64encode(b.getvalue()).decode()
+
+def file_datauri(path, box=120):
+    if not path or not os.path.exists(path): return None
+    im = Image.open(path).convert("RGB"); im.thumbnail((box, box), Image.LANCZOS)
+    return datauri(im, "JPEG", quality=84, optimize=True)
+
+def seamless_tile(path, size=132):
+    im = Image.open(path).convert("RGB"); s = int(min(im.size) * 0.52)
+    cx, cy = im.width // 2, im.height // 2
+    c = im.crop((cx - s//2, cy - s//2, cx + s//2, cy + s//2)).resize((size//2, size//2), Image.LANCZOS)
+    n = size//2; t = Image.new("RGB", (size, size))
+    t.paste(c, (0, 0)); t.paste(c.transpose(Image.FLIP_LEFT_RIGHT), (n, 0))
+    t.paste(c.transpose(Image.FLIP_TOP_BOTTOM), (0, n))
+    t.paste(c.transpose(Image.FLIP_LEFT_RIGHT).transpose(Image.FLIP_TOP_BOTTOM), (n, n))
+    return t
+
+cuts = []; H = None
+for cid, fn, openf in CUTS:
+    la = Image.open(f"{HM}/drape_maps/{fn}_drape.png")
+    if H is None: H = int(W * la.height / la.width)
+    L, A = la.split()
+    ub = datauri(Image.open(f"{HM}/renders/{fn}.png").convert("RGB").resize((W, H), Image.LANCZOS), "JPEG", quality=82, optimize=True)
+    ud = datauri(L.resize((W, H), Image.LANCZOS).convert("L"), "JPEG", quality=86, optimize=True)
+    um = datauri(A.resize((W, H), Image.LANCZOS).convert("L"), "PNG", optimize=True)
+    nrm = Image.open(f"{HM}/drape_maps/{fn}_normal.png").convert("RGB").resize((W, H), Image.LANCZOS)
+    un = datauri(nrm, "PNG", optimize=True)
+    cuts.append({"id": cid, "base": ub, "drape": ud, "mask": um, "normal": un, "openFront": openf})
+
+PX_PER_CM = (FIGURE_FRAC * H) / FIGURE_CM     # how many render px one cm of cloth spans
+FABMETA = json.load(open(f"{FAB_DIR}/fabrics.json"))
+fabs = []
+for m in FABMETA:
+    tp = os.path.join(FAB_DIR, f"tile_{m['code']}.jpg")
+    npth = os.path.join(FAB_DIR, f"norm_{m['code']}.jpg")
+    if not os.path.exists(tp):
+        continue
+    # TRUE SCALE: bake the tile at OVERSAMPLE x its real on-screen size
+    on_screen = m["cmPerTile"] * PX_PER_CM
+    out_px = max(24, int(round(on_screen * OVERSAMPLE)))
+    tile = Image.open(tp).convert("RGB").resize((out_px, out_px), Image.LANCZOS)
+    micro = Image.open(npth).convert("RGB").resize((out_px, out_px), Image.LANCZOS) if os.path.exists(npth) else None
+    fab = {
+        "code": m["code"], "name": m["name"], "kind": m["kind"],
+        "tile": datauri(tile, "JPEG", quality=90, optimize=True),
+        "sheen": m["sheen"], "relief": m["relief"], "meanLum": m.get("meanLum", 0.18),
+        "cmPerTile": m["cmPerTile"], "onScreenPx": round(on_screen, 1),
+        "price2pc": 575, "priceVest": 200,
+    }
+    if micro is not None:
+        fab["micro"] = datauri(micro, "JPEG", quality=86, optimize=True)
+    fabs.append(fab)
+print(f"px/cm on render = {PX_PER_CM:.2f}; fabric tiles baked at {OVERSAMPLE}x true scale")
+
+# curated option set — embed images as data URIs
+OPTS = json.load(open(f"{CFG}/configurator_options.json"))
+def embed(items, box=120):
+    for it in items:
+        if it.get("image"):
+            it["img"] = file_datauri(os.path.join(CFG, it["image"]) if not os.path.isabs(it["image"]) else it["image"], box)
+        it.pop("image", None)
+    return items
+for k in ("lapel", "chestPocket", "lowerPocket", "vent", "buttons", "linings"):
+    OPTS[k] = embed(OPTS.get(k, []))
+OPTS["monogram"]["fonts"] = embed(OPTS["monogram"].get("fonts", []), 160)
+
+print(f"{len(cuts)} cuts, {len(fabs)} fabrics; options:",
+      {k: (len(v) if isinstance(v, list) else {kk: len(vv) for kk, vv in v.items()}) for k, v in OPTS.items()})
+
+HTML = r"""<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gage Court — Design your suit</title>
+<style>
+ :root{
+  --bg:#efeeec;--stage:#e4e2de;--dock:#f7f6f4;--line:#dcd9d4;--line2:#c7c4bc;
+  --ink:#1b1b19;--soft:#76746e;--faint:#a3a19a;--on:#141412;--chip:#fff;
+  --sans:system-ui,-apple-system,"Helvetica Neue","Segoe UI",Arial,sans-serif;
+  /* aliases kept so the make-ticket dialog styles work unchanged */
+  --ground:#efeeec;--panel:#fff;--hair:#dcd9d4;--hair2:#c7c4bc;--brassd:#76746e;}
+ *{box-sizing:border-box}
+ html,body{margin:0}
+ body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-weight:300;line-height:1.4;-webkit-font-smoothing:antialiased}
+ .app{display:flex;flex-direction:column;height:100vh;min-height:560px;max-height:1040px;background:var(--bg)}
+ .topbar{flex:none;position:relative;display:flex;align-items:center;justify-content:space-between;padding:14px 20px}
+ .tot b{font-weight:600;font-size:16px;letter-spacing:-.01em}
+ .tot small{display:block;color:var(--soft);font-size:11.5px;margin-top:1px}
+ .brand{position:absolute;left:50%;transform:translateX(-50%);font-weight:600;letter-spacing:.24em;font-size:14px;white-space:nowrap}
+ .finish{border:none;background:var(--on);color:#fff;border-radius:999px;padding:11px 22px;font:500 13.5px var(--sans);cursor:pointer;white-space:nowrap}
+ .finish[disabled]{opacity:.55;cursor:default}
+ .stage{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;background:var(--stage);overflow:hidden}
+ canvas.hero{display:block}
+ .approx{position:absolute;left:16px;bottom:14px;max-width:44%;font-size:11px;color:var(--soft);line-height:1.35}
+ .spec-link{position:absolute;right:14px;bottom:12px;font:400 11px var(--sans);color:var(--soft);background:transparent;border:none;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+ .dock{flex:none;background:var(--dock);border-top:1px solid var(--line);padding:9px 14px 15px}
+ .tabs{display:flex;gap:2px;justify-content:center;overflow-x:auto;scrollbar-width:none}
+ .tabs::-webkit-scrollbar{display:none}
+ .tab{flex:none;border:none;background:transparent;color:var(--soft);font:400 14px var(--sans);padding:7px 15px;border-radius:999px;cursor:pointer;white-space:nowrap;transition:.12s}
+ .tab:hover{color:var(--ink)}
+ .tab.on{background:#e6e4df;color:var(--ink);font-weight:500}
+ .strip{display:flex;gap:10px;overflow-x:auto;padding:15px 2px 7px;align-items:flex-start;justify-content:center;scrollbar-width:none;min-height:86px}
+ .strip::-webkit-scrollbar{display:none}
+ .strip.left{justify-content:flex-start}
+ .strip.wrap{flex-wrap:wrap;overflow:visible;gap:14px 10px}
+ .chip{flex:none;width:60px;height:60px;border-radius:12px;border:1px solid var(--line2);background:var(--chip);background-size:cover;background-position:center;cursor:pointer;padding:0;transition:.12s}
+ .chip.round{border-radius:50%}
+ .chip:hover{transform:translateY(-1px)}
+ .chip.on{box-shadow:0 0 0 2px var(--ink);border-color:var(--ink)}
+ .tile{flex:none;width:72px;border:none;background:transparent;padding:0;cursor:pointer;text-align:center;color:var(--soft);font:400 10.5px var(--sans);line-height:1.2}
+ .tile img{width:72px;height:52px;object-fit:contain;background:#fff;border:1px solid var(--line2);border-radius:9px;margin-bottom:4px;transition:.12s}
+ .tile.on{color:var(--ink)}.tile.on img{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+ .pill{flex:none;border:1px solid var(--line2);background:#fff;color:var(--soft);border-radius:999px;padding:9px 15px;font:400 13px var(--sans);cursor:pointer;white-space:nowrap;transition:.12s}
+ .pill:hover{border-color:var(--ink);color:var(--ink)}
+ .pill.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+ .subrow{display:flex;flex-direction:column;align-items:center;gap:6px}
+ .subrow .lbl{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+ .subrow .r{display:flex;gap:8px}
+ .mono-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;padding:4px 0}
+ .mono-row input{font:inherit;font-size:13px;padding:9px 11px;border:1px solid var(--line2);border-radius:8px;background:#fff;width:118px;color:var(--ink)}
+ .toggle{display:inline-flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;color:var(--ink)}
+ .toggle .sw2{width:38px;height:22px;border-radius:999px;background:var(--line2);position:relative;flex:none;transition:.15s}
+ .toggle.on .sw2{background:var(--ink)}
+ .toggle .sw2::after{content:"";position:absolute;top:2.5px;left:2.5px;width:17px;height:17px;border-radius:50%;background:#fff;transition:.15s}
+ .toggle.on .sw2::after{left:18.5px}
+ .sel{text-align:center;padding-top:3px;min-height:20px}
+ .sel b{font-weight:500;font-size:14.5px}
+ .sel span{color:var(--soft);font-size:13px;margin-left:7px}
+ @media(max-width:620px){
+  .brand{display:none}
+  .topbar{padding:12px 14px}
+  .tot b{font-size:15px}.tot small{font-size:10.5px}
+  .finish{padding:10px 17px;font-size:13px}
+  .tab{font-size:13.5px;padding:7px 12px}
+  .strip{justify-content:flex-start}
+ }
+ /* make-ticket dialog */
+ dialog{border:none;border-radius:14px;max-width:560px;width:92%;padding:0;background:#fff;color:var(--ink)}
+ dialog::backdrop{background:rgba(0,0,0,.45)}
+ .dlg{padding:20px 22px}.dlg h3{font-weight:600;margin:0 0 4px;font-size:19px}
+ .dlg .sub{color:var(--soft);font-size:13px;margin:0 0 14px}
+ .codes{background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:12px;font-size:12px;max-height:46vh;overflow:auto}
+ .codes .r{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--line)}
+ .codes .r:last-child{border:none}.codes .c{font-family:ui-monospace,monospace;color:var(--soft)}
+ .dlg .x{margin-top:14px;display:flex;gap:8px}.dlg button{font:500 13px var(--sans);border-radius:999px;padding:9px 16px;cursor:pointer;border:1px solid var(--line2);background:#fff;color:var(--ink)}
+ .dlg button.p{background:var(--on);color:#fff;border-color:var(--on)}
+ .codes .sec{margin-bottom:12px}
+ .codes .sech{font:600 11px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--soft);padding:2px 0 5px;border-bottom:1px solid var(--line2);margin-bottom:3px;display:flex;justify-content:space-between}
+ .codes .sech .pc{color:var(--faint);font-weight:400;letter-spacing:0;text-transform:none}
+ .codes .secn{font-size:11px;color:var(--soft);margin:1px 0 5px;line-height:1.4}
+ .codes .sec.default{opacity:.8}
+ .codes .r.tot{border-top:2px solid var(--line2);margin-top:9px;padding-top:9px;font-size:13px;font-weight:600}
+</style>
+<div class="app">
+ <div class="topbar">
+  <div class="tot"><b id="totVal">$575</b><small id="totSub">Made to measure &middot; fitted at your appointment</small></div>
+  <div class="brand">GAGE COURT</div>
+  <button class="finish" id="addCart">Add to cart</button>
+ </div>
+ <div class="stage">
+  <canvas class="hero" id="hero"></canvas>
+  <div class="approx" id="approx"></div>
+  <button class="spec-link" id="specLink">Review spec</button>
+ </div>
+ <div class="dock">
+  <div class="tabs" id="tabs"></div>
+  <div class="strip" id="strip"></div>
+  <div class="sel"><b id="selName">&mdash;</b><span id="selMeta"></span></div>
+ </div>
+</div>
+<dialog id="dlg"><div class="dlg">
+  <h3>Your make ticket</h3>
+  <p class="sub">This is exactly what would be sent to production — the KuteTailor craft codes for your suit.</p>
+  <div class="codes" id="codes"></div>
+  <div class="x"><button class="p" id="copyCodes">Copy make ticket</button><button id="copyJson">Copy order JSON</button><button id="closeDlg">Close</button></div>
+</div></dialog>
+<script>
+const CUTS=__CUTS__, OPTS=__OPTS__;
+// Fabrics: the demo set by default; when embedded on Shopify we fetch the live collection (see bootstrap at end) and reassign.
+const DEMO_FABRICS=__FABRICS__;
+let FABRICS=(window.GCC_FABRICS&&window.GCC_FABRICS.length)?window.GCC_FABRICS:DEMO_FABRICS;
+const FABRIC_COLLECTION='elite-wool';  // Shopify collection handle the customizer pulls fabrics from
+const STYLES=[
+  {label:"2-button",front:"0012",db:false,pieces:2,desc:"Single-breasted · 2-button"},
+  {label:"1-button",front:"0011",db:false,pieces:2,desc:"Single-breasted · 1-button"},
+  {label:"Double-breasted",front:"0016",db:true,pieces:2,desc:"Double-breasted · 6×2"},
+  {label:"3-piece",front:"0012",db:false,pieces:3,desc:"Single-breasted · 2-button + waistcoat"}];
+// House construction defaults = GCC's ACTUAL standard, derived from 10 live orders (real KuteTailor ecodes)
+const JKT_DEF=[["Canvas","Fused","00C1"],["Lining","Full","AAQL"],["Inner facing","A","0701"],["Shoulder","Regular","0601"],["Front hem","Regular round","AAAC"],["Inner pocket","Regular","0801"],["Ticket pocket","None","027H"]];
+const PANTS_DEF=[["Pleats","Flat front, no pleat","302L"],["Front pocket","2.5cm slant","3104"],["Back pocket","Besom w/ button","3201"],["Leg opening","9.0cm","360H"],["Waistband","Regular + snugtex","3440"],["Fly","Fish-mouth, nylon zip","3400"],["Closure","Hook & button","3412"],["Lining","Front-half","3501"]];
+const VEST_DEF=[["Front","5-button","401G"],["Collar","V, no collar","4000"],["Bottom","Regular","401J"],["Lower pockets","Welt","4300"],["Back","Matched lining + strap","4210"],["Inner lining","Regular","4714"]];
+const CUTMAP={"2-button":{"Notch":"notch","Peak":"peak","_":"notch"},"1-button":{"Peak":"one","_":"one"},
+  "Double-breasted":{"Peak":"db","_":"db"},"3-piece":{"Notch":"three","_":"three"}};
+const hero=document.getElementById('hero'),hx=hero.getContext('2d');
+let W=0,H=0,off,ox,cutAssets={},pat={},fabPix={},microPix={};
+let state={fabric:FABRICS[0].code,style:"2-button",lapel:"Notch",chest:OPTS.chestPocket[0]?.code,lower:OPTS.lowerPocket[0]?.code,
+  vent:OPTS.vent[0]?.code,button:OPTS.buttons[0]?.code,lining:OPTS.linings[0]?.code,
+  mono:{on:false,initials:"",thread:OPTS.monogram.thread[0]?.code,font:OPTS.monogram.fonts[0]?.code,pos:OPTS.monogram.positions[0]?.code}};
+const WARP_AMP_N=6,NZ_MIN=0.35,NSMOOTH=3,WARP_CAP=34,PAT_DENSITY=4,SEAM_PHASE=0.42,SEAM_BUTTON=0.46,SS=3;
+const OVERSAMPLE=4;            // tiles are pre-scaled, so sampling density is constant
+const SHEEN_POW=1.6;           // how tightly the sheen hugs grazing angles
+const GLINT=0.55;              // how much the weave micro-normal modulates the sheen
+const TO_LIN=new Float32Array(256);for(let i=0;i<256;i++){const c=i/255;TO_LIN[i]=c<=0.04045?c/12.92:Math.pow((c+0.055)/1.055,2.4);}
+function lin2srgb(l){l=l<0?0:l>1?1:l;return (l<=0.0031308?12.92*l:1.055*Math.pow(l,1/2.4)-0.055)*255;}
+function load(src){return new Promise(r=>{const i=new Image();if(/^https?:/.test(src))i.crossOrigin='anonymous';i.onload=()=>r(i);i.onerror=()=>r(i);i.src=src;});}
+function boxBlur(src,w,h,r){if(r<=0)return src.slice();const t=new Float32Array(w*h),o=new Float32Array(w*h),n=2*r+1;
+  for(let y=0;y<h;y++){let s=0;for(let x=-r;x<=r;x++)s+=src[y*w+Math.min(w-1,Math.max(0,x))];
+    for(let x=0;x<w;x++){t[y*w+x]=s/n;const a=Math.min(w-1,x+r+1),b=Math.max(0,x-r);s+=src[y*w+a]-src[y*w+b];}}
+  for(let x=0;x<w;x++){let s=0;for(let y=-r;y<=r;y++)s+=t[Math.min(h-1,Math.max(0,y))*w+x];
+    for(let y=0;y<h;y++){o[y*w+x]=s/n;const a=Math.min(h-1,y+r+1),b=Math.max(0,y-r);s+=t[a*w+x]-t[b*w+x];}}
+  return o;}
+function buildWarpNormal(nimg,alpha){const nc=document.createElement('canvas');nc.width=W;nc.height=H;
+  const nxc=nc.getContext('2d');nxc.drawImage(nimg,0,0,W,H);const g=nxc.getImageData(0,0,W,H).data;
+  const sx=new Float32Array(W*H),sy=new Float32Array(W*H);
+  for(let i=0;i<W*H;i++){if(!alpha[i])continue;const nx=g[i*4]/127.5-1,ny=g[i*4+1]/127.5-1,nz=Math.max(Math.abs(g[i*4+2]/127.5-1),NZ_MIN);sx[i]=nx/nz;sy[i]=ny/nz;}
+  const bx=boxBlur(sx,W,H,NSMOOTH),by=boxBlur(sy,W,H,NSMOOTH);const dispX=new Float32Array(W*H),dispY=new Float32Array(W*H);
+  for(let i=0;i<W*H;i++){if(!alpha[i])continue;let dx=-WARP_AMP_N*bx[i],dy=-WARP_AMP_N*by[i];const m=Math.hypot(dx,dy);if(m>WARP_CAP){dx*=WARP_CAP/m;dy*=WARP_CAP/m;}dispX[i]=dx;dispY[i]=dy;}
+  const graze=new Float32Array(W*H);
+  for(let i=0;i<W*H;i++){if(!alpha[i])continue;const nz=Math.min(1,Math.abs(g[i*4+2]/127.5-1));
+    graze[i]=Math.pow(1-nz,SHEEN_POW);}
+  return {dispX,dispY,alpha,graze};}
+function buildPanels(alpha){const cen=new Float32Array(H);
+  for(let y=0;y<H;y++){let s=0,c=0;for(let x=0;x<W;x++){if(alpha[y*W+x]){s+=x;c++;}}cen[y]=c?s/c:W/2;}
+  const sm=new Float32Array(H),r=15;for(let y=0;y<H;y++){let s=0,c=0;for(let k=-r;k<=r;k++){const yy=y+k;if(yy>=0&&yy<H){s+=cen[yy];c++;}}sm[y]=s/c;}
+  const bY=Math.floor(SEAM_BUTTON*H),panel=new Uint8Array(W*H);for(let y=0;y<bY;y++)for(let x=0;x<W;x++)if(alpha[y*W+x]&&x>sm[y])panel[y*W+x]=1;return panel;}
+function sizeHero(){const st=hero.parentElement;if(!st||!W)return;const sw=Math.max(40,st.clientWidth-6),sh=Math.max(40,st.clientHeight-6),AR=W/H;
+  let h=sh,w=h*AR;if(w>sw){w=sw;h=w/AR;}hero.style.width=Math.round(w)+'px';hero.style.height=Math.round(h)+'px';}
+async function init(){
+  for(const c of CUTS){const [b,d,m,nimg]=await Promise.all([load(c.base),load(c.drape),load(c.mask),load(c.normal)]);
+    if(!W){W=b.naturalWidth;H=b.naturalHeight;hero.width=W;hero.height=H;sizeHero();addEventListener('resize',sizeHero);off=document.createElement('canvas');off.width=W;off.height=H;ox=off.getContext('2d');}
+    const dc=document.createElement('canvas');dc.width=W;dc.height=H;const dx=dc.getContext('2d');
+    dx.drawImage(d,0,0,W,H);const di=dx.getImageData(0,0,W,H);
+    const mc=document.createElement('canvas');mc.width=W;mc.height=H;const mx=mc.getContext('2d');
+    mx.drawImage(m,0,0,W,H);const mi=mx.getImageData(0,0,W,H);
+    for(let i=0;i<di.data.length;i+=4)di.data[i+3]=mi.data[i];dx.putImageData(di,0,0);
+    const alpha=new Uint8Array(W*H);for(let i=0;i<W*H;i++)alpha[i]=mi.data[i*4];
+    const warp=buildWarpNormal(nimg,alpha);
+    cutAssets[c.id]={base:b,drapeLA:dc,warp,panel:c.openFront?buildPanels(warp.alpha):new Uint8Array(W*H)};}
+  await Promise.all(FABRICS.map(async f=>{const t=await load(f.tile);pat[f.code]=ox.createPattern(t,'repeat');
+    if(f.micro){const mi=await load(f.micro);const mc=document.createElement('canvas');mc.width=mi.naturalWidth;mc.height=mi.naturalHeight;
+      const mxx=mc.getContext('2d');mxx.drawImage(mi,0,0);microPix[f.code]=mxx.getImageData(0,0,mc.width,mc.height).data;}
+    const tc=document.createElement('canvas');tc.width=t.naturalWidth;tc.height=t.naturalHeight;tc.getContext('2d').drawImage(t,0,0);
+    fabPix[f.code]={d:tc.getContext('2d').getImageData(0,0,tc.width,tc.height).data,w:tc.width,h:tc.height};}));
+  buildDock();render();sizeHero();}
+let clothC,clothX;
+let sheenBuf=null;
+function warpedCloth(cutId,code){const {dispX,dispY,alpha,graze}=cutAssets[cutId].warp,panel=cutAssets[cutId].panel,T=fabPix[code],tw=T.w,th=T.h,td=T.d;
+  const MN=microPix[code]||null,fdef=FABRICS.find(f=>f.code===code)||{},sheenAmt=(fdef.sheen!=null?fdef.sheen:0.14),sheenLum=(fdef.meanLum!=null?fdef.meanLum:0.18);
+  if(!sheenBuf||sheenBuf.length!==W*H)sheenBuf=new Float32Array(W*H);
+  const dens=(FABRICS.find(f=>f.code===code)||{}).density||PAT_DENSITY;const pox=SEAM_PHASE*tw,poy=SEAM_PHASE*th;
+  if(!clothC){clothC=document.createElement('canvas');clothC.width=W;clothC.height=H;clothX=clothC.getContext('2d');}
+  const out=clothX.createImageData(W,H),od=out.data;
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x;if(!alpha[i]){od[i*4+3]=0;continue;}
+    const oxx=panel[i]?pox:0,oyy=panel[i]?poy:0;const cx=(x+dispX[i])*dens+oxx,cy=(y+dispY[i])*dens+oyy;
+    const gx=i%W<W-1?Math.abs(dispX[i+1]-dispX[i]):0,gy=i>=W?Math.abs(dispY[i]-dispY[i-W]):0;const fp=dens*(1+2*(gx+gy));
+    let rl=0,gl=0,bl=0;
+    for(let sj=0;sj<SS;sj++)for(let si=0;si<SS;si++){const sx=cx+((si+0.5)/SS-0.5)*fp,sy=cy+((sj+0.5)/SS-0.5)*fp;
+      let fx=sx%tw;if(fx<0)fx+=tw;let fy=sy%th;if(fy<0)fy+=th;
+      const x0=fx|0,y0=fy|0,x1=(x0+1)%tw,y1=(y0+1)%th,ax=fx-x0,ay=fy-y0;
+      const p00=(y0*tw+x0)*4,p10=(y0*tw+x1)*4,p01=(y1*tw+x0)*4,p11=(y1*tw+x1)*4;let t,b2;
+      t=TO_LIN[td[p00]]*(1-ax)+TO_LIN[td[p10]]*ax;b2=TO_LIN[td[p01]]*(1-ax)+TO_LIN[td[p11]]*ax;rl+=t*(1-ay)+b2*ay;
+      t=TO_LIN[td[p00+1]]*(1-ax)+TO_LIN[td[p10+1]]*ax;b2=TO_LIN[td[p01+1]]*(1-ax)+TO_LIN[td[p11+1]]*ax;gl+=t*(1-ay)+b2*ay;
+      t=TO_LIN[td[p00+2]]*(1-ax)+TO_LIN[td[p10+2]]*ax;b2=TO_LIN[td[p01+2]]*(1-ax)+TO_LIN[td[p11+2]]*ax;bl+=t*(1-ay)+b2*ay;}
+    const n=SS*SS;const R=rl/n,G=gl/n,B=bl/n;
+    od[i*4]=lin2srgb(R);od[i*4+1]=lin2srgb(G);od[i*4+2]=lin2srgb(B);od[i*4+3]=255;
+    // --- sheen: luminance of the cloth, weighted to grazing angles, modulated by weave micro-normal ---
+    let gz=graze[i];
+    if(MN){let mx=cx%tw;if(mx<0)mx+=tw;let my=cy%th;if(my<0)my+=th;
+      const mp=((my|0)*tw+(mx|0))*4;const tilt=(MN[mp]/127.5-1)*0.5+(MN[mp+1]/127.5-1)*0.5;
+      gz*=(1+GLINT*tilt);}
+    sheenBuf[i]=sheenLum*gz*sheenAmt;}   // FLAT tint: per-pixel luminance would amplify stripes/checks
+  clothX.putImageData(out,0,0);return clothC;}
+let sheenC,sheenX;
+function sheenLayer(){ // additive pass — multiply can only darken, sheen is what makes cloth read as cloth
+  if(!sheenC){sheenC=document.createElement('canvas');sheenC.width=W;sheenC.height=H;sheenX=sheenC.getContext('2d');}
+  const im=sheenX.createImageData(W,H),d=im.data;
+  for(let i=0;i<W*H;i++){const v=sheenBuf?sheenBuf[i]:0;const s=lin2srgb(v);
+    d[i*4]=s;d[i*4+1]=s;d[i*4+2]=s;d[i*4+3]=255;}
+  sheenX.putImageData(im,0,0);return sheenC;}
+function resolveCut(){const s=CUTMAP[state.style]||CUTMAP["2-button"];const cut=s[state.lapel]||s["_"];return {cut,approx:!s[state.lapel]};}
+function render(){const {cut,approx}=resolveCut();const A=cutAssets[cut];hx.clearRect(0,0,W,H);hx.drawImage(A.base,0,0);
+  const f=FABRICS.find(x=>x.code===state.fabric);
+  ox.setTransform(1,0,0,1,0,0);ox.clearRect(0,0,W,H);ox.globalCompositeOperation='source-over';
+  ox.drawImage(warpedCloth(cut,state.fabric),0,0);   // tiled at true scale for every cloth
+  ox.globalCompositeOperation='destination-in';ox.drawImage(A.drapeLA,0,0);
+  ox.globalCompositeOperation='overlay';ox.drawImage(A.drapeLA,0,0);ox.globalCompositeOperation='source-over';
+  hx.drawImage(off,0,0);
+  // additive sheen, masked to the suit
+  ox.globalCompositeOperation='source-over';ox.clearRect(0,0,W,H);
+  ox.drawImage(sheenLayer(),0,0);
+  ox.globalCompositeOperation='destination-in';ox.drawImage(A.drapeLA,0,0);
+  ox.globalCompositeOperation='source-over';
+  hx.globalCompositeOperation='lighter';hx.drawImage(off,0,0);hx.globalCompositeOperation='source-over';
+  const ap=document.getElementById('approx');if(ap)ap.textContent=approx?('Preview shows the nearest rendered lapel — made with your '+state.lapel+' lapel.'):'';
+  updateChrome();}
+// ---- UI: Suitsupply-style dock (section tabs + swatch strip + selected label) ----
+const SECTIONS=[{key:'cloth',label:'Cloth'},{key:'style',label:'Style'},{key:'lapel',label:'Lapel'},
+  {key:'pockets',label:'Pockets'},{key:'buttons',label:'Buttons'},{key:'lining',label:'Lining'},{key:'mono',label:'Monogram'}];
+let activeSection='cloth';
+function chip(img,on,cb,round){const b=document.createElement('button');b.className='chip'+(round?' round':'')+(on?' on':'');if(img)b.style.backgroundImage='url("'+img+'")';b.onclick=cb;return b;}
+function tile(img,label,on,cb){const b=document.createElement('button');b.className='tile'+(on?' on':'');b.innerHTML=(img?'<img src="'+img+'">':'')+'<span>'+label+'</span>';b.onclick=cb;return b;}
+function pill(label,on,cb){const b=document.createElement('button');b.className='pill'+(on?' on':'');b.textContent=label;b.onclick=cb;return b;}
+function subrow(label,nodes){const w=document.createElement('div');w.className='subrow';const l=document.createElement('div');l.className='lbl';l.textContent=label;const r=document.createElement('div');r.className='r';nodes.forEach(n=>r.appendChild(n));w.appendChild(l);w.appendChild(r);return w;}
+function pick(setter){setter();render();renderStrip();}
+function renderStrip(){const s=document.getElementById('strip');s.innerHTML='';s.className='strip';
+  if(activeSection==='cloth'){s.classList.add('left');FABRICS.forEach(f=>s.appendChild(chip(f.tile||f.img,state.fabric===f.code,()=>pick(()=>state.fabric=f.code))));}
+  else if(activeSection==='style'){STYLES.forEach(st=>s.appendChild(pill(st.label,state.style===st.label,()=>pick(()=>state.style=st.label))));}
+  else if(activeSection==='lapel'){OPTS.lapel.forEach(l=>s.appendChild(tile(l.img,l.label,state.lapel===l.label,()=>pick(()=>state.lapel=l.label))));}
+  else if(activeSection==='pockets'){s.classList.add('wrap');
+    s.appendChild(subrow('Chest',OPTS.chestPocket.map(o=>tile(o.img,o.label,state.chest===o.code,()=>pick(()=>state.chest=o.code)))));
+    s.appendChild(subrow('Lower',OPTS.lowerPocket.map(o=>tile(o.img,o.label,state.lower===o.code,()=>pick(()=>state.lower=o.code)))));
+    s.appendChild(subrow('Vents',OPTS.vent.map(o=>pill(o.label,state.vent===o.code,()=>pick(()=>state.vent=o.code)))));}
+  else if(activeSection==='buttons'){OPTS.buttons.forEach(o=>s.appendChild(chip(o.img||o.tile,state.button===o.code,()=>pick(()=>state.button=o.code),true)));}
+  else if(activeSection==='lining'){OPTS.linings.forEach(o=>s.appendChild(chip(o.img||o.tile,state.lining===o.code,()=>pick(()=>state.lining=o.code),true)));}
+  else if(activeSection==='mono'){renderMono(s);}
+  updateChrome();}
+function renderMono(s){const row=document.createElement('div');row.className='mono-row';
+  const tog=document.createElement('div');tog.className='toggle'+(state.mono.on?' on':'');tog.innerHTML='<span class="sw2"></span><span>Add a monogram</span>';
+  tog.onclick=()=>pick(()=>state.mono.on=!state.mono.on);row.appendChild(tog);
+  if(state.mono.on){const inp=document.createElement('input');inp.type='text';inp.maxLength=4;inp.placeholder='Initials';inp.value=state.mono.initials||'';
+    inp.oninput=e=>{state.mono.initials=e.target.value;updateChrome();};row.appendChild(inp);
+    OPTS.monogram.thread.slice(0,8).forEach(t=>row.appendChild(pill(t.name,state.mono.thread===t.code,()=>pick(()=>state.mono.thread=t.code))));}
+  s.appendChild(row);}
+function renderTabs(){const t=document.getElementById('tabs');t.innerHTML='';SECTIONS.forEach(sec=>{const b=document.createElement('button');b.className='tab'+(sec.key===activeSection?' on':'');b.textContent=sec.label;b.onclick=()=>{activeSection=sec.key;renderTabs();renderStrip();};t.appendChild(b);});}
+function selInfo(){const f=FABRICS.find(x=>x.code===state.fabric)||{};
+  if(activeSection==='cloth')return [f.name||'','$'+price().toLocaleString()];
+  if(activeSection==='style')return [state.style,''];
+  if(activeSection==='lapel')return [state.lapel+' lapel',''];
+  if(activeSection==='pockets')return [nameOf(OPTS.chestPocket,state.chest)+' chest · '+nameOf(OPTS.lowerPocket,state.lower)+' lower',nameOf(OPTS.vent,state.vent)+' vent'];
+  if(activeSection==='buttons')return [nameOf(OPTS.buttons,state.button)+' buttons',''];
+  if(activeSection==='lining')return [nameOf(OPTS.linings,state.lining)+' lining',''];
+  if(activeSection==='mono')return [state.mono.on?(state.mono.initials||'Monogram'):'No monogram',''];
+  return ['',''];}
+function updateChrome(){const a=selInfo();const sn=document.getElementById('selName'),sm=document.getElementById('selMeta'),tv=document.getElementById('totVal');
+  if(sn)sn.textContent=a[0];if(sm)sm.textContent=a[1];if(tv)tv.textContent='$'+price().toLocaleString();}
+function buildDock(){renderTabs();renderStrip();
+  const ac=document.getElementById('addCart');if(ac)ac.onclick=addToCart;
+  const sl=document.getElementById('specLink');if(sl)sl.onclick=openTicket;}
+function nameOf(list,code,field){const o=(list||[]).find(x=>x.code===code);return o?(o.name||o.label||o[field]||code):code;}
+// Price = the fabric's own 2-piece price (+ its vest price for 3-piece) + monogram. Per-fabric prices come from the Shopify product; demo falls back to 575/200.
+function price(){const f=FABRICS.find(x=>x.code===state.fabric)||{};const base=(f.price2pc!=null?f.price2pc:575);const vest=(f.priceVest!=null?f.priceVest:200);return base+(curStyle().pieces===3?vest:0)+(state.mono.on?25:0);}
+function curStyle(){return STYLES.find(s=>s.label===state.style)||STYLES[0];}
+function ticket(){const f=FABRICS.find(x=>x.code===state.fabric);const st=curStyle();
+  const lap=OPTS.lapel.find(l=>l.label===state.lapel)||{};
+  const jrows=[['Front & buttons',st.desc,st.front],['Lapel',state.lapel,lap.code||''],
+    ['Chest pocket',nameOf(OPTS.chestPocket,state.chest),state.chest],['Lower pockets',nameOf(OPTS.lowerPocket,state.lower),state.lower],
+    ['Vents',nameOf(OPTS.vent,state.vent),state.vent],['Lining',nameOf(OPTS.linings,state.lining),state.lining],
+    ['Buttons',nameOf(OPTS.buttons,state.button),state.button]];
+  if(state.mono.on)jrows.push(['Monogram',(state.mono.initials||'—')+' · '+nameOf(OPTS.monogram.thread,state.mono.thread,'name')+' · '+nameOf(OPTS.monogram.fonts,state.mono.font,'name'),[state.mono.pos,state.mono.thread,state.mono.font].filter(Boolean).join(',')]);
+  const sections=[
+    {title:'Cloth',pc:'',kind:'cloth',rows:[[f.name,'',f.code]]},
+    {title:'Jacket',pc:'1 of '+st.pieces,kind:'garment',rows:jrows},
+    {title:'Trousers',pc:'2 of '+st.pieces,kind:'garment',rows:PANTS_DEF.slice()}];
+  if(st.pieces===3)sections.push({title:'Waistcoat',pc:'3 of 3',kind:'garment',
+    note:'Matching cloth. Waistcoat construction finalised at your fitting.',rows:VEST_DEF.slice()});
+  sections.push({title:'Jacket construction — house standard',pc:'',kind:'default',rows:JKT_DEF.slice()});
+  return {fabric:{name:f.name,code:f.code},price:price(),pieces:st.pieces,sections};}
+function ticketText(){const t=ticket();let o='GAGE COURT CLOTHIERS — MAKE TICKET ('+t.pieces+'-piece)\n';
+  t.sections.forEach(s=>{o+='\n'+s.title.toUpperCase()+'\n';if(s.note)o+='  ('+s.note+')\n';
+    s.rows.forEach(r=>{o+='  '+r[0]+(r[1]?': '+r[1]:'')+(r[2]&&r[2]!=='—'?'  ['+r[2]+']':'')+'\n';});});
+  o+='\nIndicative price: $'+t.price.toLocaleString()+'\n';return o;}
+// Real KuteTailor POST /order/saveOrder body (submit:false = saves to CART, unpaid). crafts = comma-joined ecode / ecode:content.
+// jacket=MXF pants=MXK vest=MMJ; 2pc category "T", 3pc category "S". Button=0638/3454/4240:<code>, lining=0714/4714:<code>.
+// Standard size = jacket/vest 38R, pants 32R (inches); measuresType 10002 (finished); positionEcode = blEcode (XF/XK/MJ).
+const STD_SIZE={
+  MXF:[["XF01",41.7],["XF02",37.0],["XF03",40.9],["XF08",17.7],["XF05",24.4],["XF06",24.4],["XF07",29.5],["XF04",15.4]],
+  MXK:[["XK01",33.9],["XK02",40.9],["XK03",25.6],["XK04",26.8],["XK05",42.1],["XK06",42.1],["XK07",15.4]],
+  MMJ:[["MJ01",39.8],["MJ02",37.0],["MJ04",23.2]]};
+function stdSizes(cc){return STD_SIZE[cc].map(function(x){return {positionEcode:x[0],size:x[1]};});}
+function orderPayload(){const st=curStyle();const three=st.pieces===3;
+  const lap=(OPTS.lapel.find(l=>l.label===state.lapel)||{}).code||'';
+  const jc=[st.front,lap,state.chest,state.lower,state.vent,'00C1','AAQL','0701','0714:'+state.lining,'0638:'+state.button,'0601','AAAC','0801','027H'].filter(Boolean).join(',');
+  const pc=['302L','3104','3201','360H','3440','344A','3412','3400','3420','372K','3501','3454:'+state.button].join(',');
+  const details=[
+    {categoryCode:'MXF',styleCode:'',crafts:jc,sizeNames:'38R',orderSizes:stdSizes('MXF'),
+     orderEmbs:(state.mono.on?[{embPositionCode:state.mono.pos,fontCode:state.mono.font,colorCode:state.mono.thread,content:state.mono.initials||''}]:[])},
+    {categoryCode:'MXK',styleCode:'',crafts:pc,sizeNames:'32R',orderSizes:stdSizes('MXK')}];
+  if(three)details.push({categoryCode:'MMJ',styleCode:'',crafts:['401G','401J','4000','4X06','4300','4210','4200','4714:'+state.lining,'4240:'+state.button].join(','),sizeNames:'38R',orderSizes:stdSizes('MMJ')});
+  return {orderNo:'',submit:false,customerNo:'',addProduct:true,amount:1,isSample:0,
+    category:three?'S':'T',measuresType:10002,fabric:state.fabric,
+    customer:{nickname:'',firstname:'',lastname:'',gender:'1002',height:178,heightUnit:1019,weight:80,weightUnit:1017},
+    orderDetails:details};}
+// ---- Shopify order capture: one container product; design travels as line-item properties ----
+const SHOPIFY={containerId:8484001677499,
+  variantByPrice:{550:48117852012731,575:48117852045499,600:48117852078267,625:48117852111035,650:48117852143803,675:48117852176571,700:48117852209339,725:48117852242107,750:48117852274875,775:48117852307643,800:48117852340411,825:48117852373179,850:48117852405947,875:48117852438715,900:48117852471483,950:48117852504251,1000:48117852537019}};
+function pickVariant(total){const tiers=Object.keys(SHOPIFY.variantByPrice).map(Number).sort((a,b)=>a-b);let t=tiers.find(x=>x>=total);if(t==null)t=tiers[tiers.length-1];return SHOPIFY.variantByPrice[t];}
+// Neutral, supplier-agnostic order the backend receives; KuteTailor saveOrder body is one mapping inside supplierSpecs.
+function orderEnvelope(){const f=FABRICS.find(x=>x.code===state.fabric)||{};const st=curStyle();
+  return {schema:'gcc.order/v1',price:price(),customer:{},
+    design:{fabricCode:state.fabric,fabricName:f.name,pieces:st.pieces,cut:state.style,lapel:state.lapel,
+      chestPocket:state.chest,lowerPocket:state.lower,vent:state.vent,lining:state.lining,buttons:state.button,
+      monogram:state.mono.on?{initials:state.mono.initials,thread:state.mono.thread,font:state.mono.font,position:state.mono.pos}:null,
+      size:'jacket 38R / pants 32R (standard — confirmed at fitting)'},
+    supplierSpecs:{kutetailor:orderPayload()}};}
+function onShopify(){return !!(window.Shopify&&window.Shopify.routes);}
+function addToCart(){const env=orderEnvelope();const vid=pickVariant(env.price);const f=FABRICS.find(x=>x.code===state.fabric)||{};
+  const props={'_config':JSON.stringify(env),'Cloth':(f.name||'')+' ('+state.fabric+')','Cut':state.style+' · '+state.lapel+' lapel',
+    'Lining':nameOf(OPTS.linings,state.lining),'Buttons':nameOf(OPTS.buttons,state.button)};
+  if(state.mono.on)props['Monogram']=(state.mono.initials||'(initials)');
+  if(!onShopify()){openTicket();return;}   // standalone preview: show the make ticket instead of hitting a live cart
+  const btn=document.getElementById('addCart');if(btn){btn.disabled=true;btn.textContent='Adding…';}
+  const root=(window.Shopify&&Shopify.routes&&Shopify.routes.root)||'/';
+  fetch(root+'cart/add.js',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({items:[{id:vid,quantity:1,properties:props}]})})
+   .then(r=>r.json()).then(()=>{window.location.href=root+'cart';})
+   .catch(e=>{if(btn){btn.disabled=false;btn.textContent='Add to cart — $'+price().toLocaleString();}alert('Could not add to cart: '+e);});}
+function openTicket(){const t=ticket();const el=document.getElementById('codes');
+  let h=t.sections.map(sec=>{let s=`<div class="sec ${sec.kind}"><div class="sech"><span>${sec.title}</span>${sec.pc?`<span class="pc">${sec.pc}</span>`:''}</div>`;
+    if(sec.note)s+=`<div class="secn">${sec.note}</div>`;
+    s+=sec.rows.map(r=>`<div class="r"><span>${r[0]}${r[1]?': <b>'+r[1]+'</b>':''}</span><span class="c">${r[2]&&r[2]!=='—'?r[2]:''}</span></div>`).join('');
+    return s+`</div>`;}).join('');
+  h+=`<div class="r tot"><span>Indicative price</span><span class="c">$${t.price.toLocaleString()}</span></div>`;
+  el.innerHTML=h;document.getElementById('dlg').showModal();}
+document.getElementById('closeDlg').onclick=()=>document.getElementById('dlg').close();
+function copyTo(id,txt,done){try{navigator.clipboard&&navigator.clipboard.writeText(txt);}catch(e){}const b=document.getElementById(id);const o=b.textContent;b.textContent=done;setTimeout(()=>b.textContent=o,1400);}
+document.getElementById('copyCodes').onclick=()=>copyTo('copyCodes',ticketText(),'Copied ✓');
+document.getElementById('copyJson').onclick=()=>copyTo('copyJson',JSON.stringify(orderPayload(),null,2),'Copied ✓');
+// When embedded on Shopify, pull the fabric list from the live collection (published products only; drafts → empty → keep demo).
+async function loadShopifyFabrics(){
+  try{
+    const r=await fetch('/collections/'+FABRIC_COLLECTION+'/products.json?limit=250',{headers:{'Accept':'application/json'}});
+    if(!r.ok)return null;const j=await r.json();
+    const fabs=(j.products||[]).map(p=>{
+      const two=(p.variants||[]).find(v=>/two piece/i.test(v.title))||p.variants[0]||{};
+      const vest=(p.variants||[]).find(v=>/vest/i.test(v.title));
+      const code=(two.sku)||(p.variants[0]&&p.variants[0].sku)||'';
+      const img=(p.images&&p.images[0]&&(p.images[0].src))||'';
+      const pat=/check|plaid|windowpane|glen|prince of wales|stripe|herringbone|houndstooth/i.test(p.title);
+      return {code,name:(p.title||'').replace(/\s*\([^)]*\)\s*$/,'').replace(/^Elite Wool\s*[-–]\s*/i,''),
+        kind:pat?'pattern':'solid',tile:img,
+        price2pc:Math.round(parseFloat(two.price||'575')),priceVest:vest?Math.round(parseFloat(vest.price)):200};
+    }).filter(f=>f.code&&f.tile);
+    return fabs.length?fabs:null;
+  }catch(e){return null;}
+}
+(async function(){ if(onShopify()){const sf=await loadShopifyFabrics(); if(sf){FABRICS=sf; state.fabric=sf[0].code;}} init(); })();
+</script>
+"""
+open(OUT, "w").write(HTML.replace("__CUTS__", json.dumps(cuts)).replace("__FABRICS__", json.dumps(fabs)).replace("__OPTS__", json.dumps(OPTS)))
+print("wrote", OUT, f"({os.path.getsize(OUT)/1024/1024:.2f} MB)")

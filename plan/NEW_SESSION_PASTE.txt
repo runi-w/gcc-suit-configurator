@@ -1,0 +1,37 @@
+I'm continuing work on the Gage Court suit configurator.
+
+Read these first, in this order:
+- ~/Desktop/GCC_House_Model/HANDOVER.md — full state, file layout, locked constants, next actions
+- the `gcc-pattern-render-playbook` memory — THE STANDARD for fabric rendering. It is locked and
+  carries a tried-and-rejected list. Read before touching any rendering code.
+
+Rebuild (byte-identical, all paths absolute):
+  cd ~/Desktop/GCC_House_Model/builder && python3 build_configurator_v0.py
+Preview over http:// (not file://).
+
+SETTLED — do not relitigate:
+- 2D compositing, NOT real-time 3D. Proven from live production assets that Suitsupply and
+  Hockerty are both pre-rendered 2D layer stacks. Don't propose 3D.
+- Do NOT add AO / crevice darkening in folds. Tried, rejected, and Suitsupply measurably have none.
+- Our asset count is fabric-independent (we composite cloth at runtime). ~126 renders covers every
+  visible option across all 117 cloths. Do NOT copy Suitsupply's 25,000-layer per-fabric approach.
+- Fabric names come from Shopify, never guessed from colour.
+- Suits are made-to-measure — never "handcrafted" or "hand-tailored".
+
+MEASUREMENT RULES (each of these already cost a wasted round):
+- Hard-mask alpha>200, and erode 3px on a variance mask. The anti-aliased edge band inflated
+  measured specular from 3.3 to 10.9 and looked like a real defect.
+- Compare images at MATCHED px/cm. Mismatched density made our pattern look 2x wobblier than it is.
+- Use Suitsupply's `ai-generated/ai-model` layer as reference, never their flat `Jacket/model`
+  layers — a garment with no body inside has neckline-cavity darks ours can't have.
+- audit/period.py is unreliable (locks onto harmonics). Settle scale questions visually.
+- Metrics miss things. An edge-roughness metric rated a broken mask identical to a good one; only
+  a 6x visual zoom found it. Always look at the image, don't just trust the number.
+
+CURRENT STATE (measured vs Suitsupply's photographic model layer):
+  MATCHED: colour 98% of the mill scan, pattern scale 0.99x true, sharpness 95% of true cloth,
+           no moire, specular 3.08 vs their 3.30, on-screen density 9.95 vs their 10.3 px/cm.
+  GAPS:    crease depth 0.24 vs their 0.032 (~7x lighter)
+           pattern wrap: ours 5.4 deg of noise vs their 22.7 deg monotonic swing
+
+WHAT I WANT TO WORK ON: [FILL IN]
