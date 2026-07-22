@@ -26,8 +26,40 @@ sales/month**. That volume is why real-time 3D and per-fabric photography are ou
 - **New house model** — regenerated 2026-07-21, black shoes, tieless. **Only the `notch` cut has
   the new model**; the other four cuts still use the old renders, so the man changes when you
   change cut. Expected — fixed by generating the remaining 14.
-- **10 Elite Wool cloths** of 117, named from Shopify.
+- **17 cloths** — 10 Elite + 2 new Elite pinstripes (DBT6860, DBU081A) + 5 Prestige test
+  (DBS175A, DBQ791A, DBS171A, DBV120A, DBP665A), all named from Shopify.
 - Add-to-cart → Shopify container product; "View details" → real KuteTailor `saveOrder` spec.
+
+### ⭐ Session 2 (2026-07-22) — what changed since the table below was written (commit `0e66499`)
+
+- **Crease depth FIXED — and the lever was the COMPOSITOR, not the base render.** The old §6.2
+  claim ("lever is a hero prompt change") was measured and **overturned**: the render already had
+  SS-deep creases (p1/med 0.060), the drape file 0.045; `soften_drape` + the overlay were
+  flattening them to 0.25. Fixed with a structural-crease restore in `soften_drape` (+drape JPEG
+  q90) → **composite 0.073**. Fabric-independent, applies to every cloth. Residual: shadow p5
+  still ~0.40 vs SS 0.19 (deliberate stop — deeper needs touching the locked fold look).
+- **Pattern wrap RESOLVED as a non-issue.** Measured at matched px/cm: torso is already at SS
+  parity (spread 22.2 vs 23.1; swing 5.6 vs their 2.8). `SIL_WRAP` measurably *regresses* both and
+  shears sleeves → **tried-and-rejected** (§8). The "22.7° swing" was the full-silhouette splay
+  incl. sleeves, a per-tube effect, never a torso property.
+- **Stripe source fixes** (`prep_fabrics.py`): scans were leaning up to 1.3° → **deskew** +
+  motif-period-snap; **SS-style line-width floor** (2.2 canvas px, gated to thin-line/wide-pitch)
+  — SS's "clean lines" are drawn ~2× physical width, a display idealisation, not fidelity;
+  contrast **B (0.85)** locked for stripes.
+- **Mask fixes** (`make_mask.py`, recall 1.000 on all 5 cuts): skin-bounce reclaim (hand smudges),
+  hull-based shoe cut (stripes no longer composite across black leather), enclosed-hole fill
+  (sleeve blotches). `WARP_CAP` 16→6.5 (stripes were S-bending in crotch/hem creases).
+- **`prep_fabrics.py` normalisation anchors FROZEN** → the 117-batch blocker (old §6.5) is
+  resolved; existing 9 fabrics' params verified byte-identical.
+- **All 5 cuts re-piped** (masks + drapes regenerated to this pipeline).
+- **Baked-still experiment** (SS fabric-step architecture) added then **disabled** — the catalog
+  still is a different model/pose than the compositor's house model, so switching tabs swapped the
+  man (user rejected). Code path retained in the builder (`STILLS` dict) for when stills are baked
+  on the house model.
+- **Research done** → `plan/RESEARCH_FINDINGS.md` (adversarially reviewed). Conclusion:
+  **difficulty-routing** — keep the compositor for the ~85% easy majority (at parity), AI-bake only
+  the ~27–29 bold directional patterns, after a validation gate (bake a pinstripe+windowpane onto
+  the *standing* house render, compare vs compositor) and after the 14 renders land.
 
 ### Measured against Suitsupply (their **photographic model** layer)
 
@@ -39,8 +71,9 @@ sales/month**. That volume is why real-time 3D and per-fabric photography are ou
 | Moiré | none | none | ✅ |
 | Specular (p99/med) | 3.08 | 3.30 | ✅ |
 | On-screen cloth density | 9.95 px/cm @1448×1086 | 10.3 | ✅ |
-| **Crease depth (p1/med)** | **0.24** | **0.032** | ❌ ~7× lighter |
-| **Pattern wrap (swing)** | **5.4° noise** | **22.7° monotonic** | ❌ |
+| Pattern wrap (torso, matched px/cm) | spread 22.2 / swing 5.6 | 23.1 / 2.8 | ✅ parity (Session 2) |
+| **Crease depth (p1/med)** | ~~0.24~~ → **0.073** | **0.031** | ✅ fixed in compositor (Session 2) |
+| **Shadow depth (p5/med)** | **~0.40** | **0.19** | 🟡 residual, deliberate stop |
 
 ---
 
@@ -137,27 +170,26 @@ python3 builder/build_configurator_v0.py                     # 5. build
 
 ---
 
-## 6. Next actions, in priority order
+## 6. Next actions, in priority order (revised Session 2, 2026-07-22)
 
-1. **Pattern wrap (`SIL_WRAP`)** — biggest visual gap. Implemented in `buildWarpNormal` and
-   **validated on the torso** (central bands ordered −7.2 → −4.5 → −0.2 → +3.7 at 0.70, vs noise
-   before), but disabled: `hw[y]` spans the whole row, so the **sleeves** — separate tubes with no
-   background gap to the body in this pose — get sheared as if they were the torso. Outer bands
-   invert and wobble rises 19°→24°. **Needs per-panel centre/width (torso vs each sleeve)**;
-   likely segmentable from the arm/body crease in the normal map. Target: swing 22.7°, spread
-   16.7°, monotonic. Measure with `python3 audit/pattern_map.py`.
-2. **Crease depth** — ours 0.24 of median vs SS 0.032. The lever is the base render's own crease
-   depth (a hero prompt change), not the compositor. Decide before generating the other 14.
-3. **Generate the remaining 14 renders** — `plan/MODEL_BIBLE.md` has the full spec, order
-   (hero → 4 fronts → sides/backs) and all prompts. Until then the man changes when the cut changes.
-4. **Wire the view dimension** — `CUTS` maps one filename per cut; needs cut × view, and the
-   Front/Back control needs connecting (styled but disabled).
-5. **Fix `prep_fabrics.py` param normalisation** — sheen/relief normalise across the *current
-   batch*, so processing all 117 shifts every value. Needs absolute anchors. **Blocks the 117 batch.**
-6. **Batch all 117 fabrics**, spot-check outliers.
-7. **Shopify embed** — upload remaining 29 assets → `themeFilesUpsert` onto theme 149240774843 →
-   `pageCreate`. ⚠ deliverable is 3.52 MB; check the page budget.
-8. **Register `orders/paid` webhook** + wire the backend.
+1. **Generate the remaining 14 renders** — THE prerequisite for everything (the man changes when
+   the cut changes; every bake path depends on consistent cuts first). `plan/MODEL_BIBLE.md` has
+   the full spec, order (hero → 4 fronts → sides/backs) and all prompts. Hero (`notch`) is approved.
+2. **Wire the view dimension** — `CUTS` maps one filename per cut; needs cut × view, and the
+   Front/Back control needs connecting (styled; the `STILLS`/still-swap code already toggles it).
+3. **Difficulty-routing bake (per `plan/RESEARCH_FINDINGS.md`)** — the drape/wrap path for the hard
+   fabrics. FIRST run the **validation gate**: bake a chalk-stripe + a windowpane onto the
+   *standing* `renders/front_2button_notch.png` via the catalog Gemini recipe and compare wrap vs
+   the compositor (the recipe was only ever proven on the *walking* catalog model). If it passes,
+   AI-bake only the ~27–29 bold directional patterns; keep the compositor for the rest.
+4. **Batch all 117 fabrics** — now UNBLOCKED (normalisation anchors frozen Session 2); spot-check
+   outliers.
+5. **Shopify embed** — `themeFilesUpsert` onto theme 149240774843 → `pageCreate`. ⚠ deliverable is
+   3.76 MB (grew with q90 drape + 7 fabrics); check the page budget.
+6. **Register `orders/paid` webhook** + wire the backend.
+
+**DONE Session 2 (was #1/#2/#5):** pattern wrap (rejected — already at parity), crease depth (fixed
+in the compositor, not the render), `prep_fabrics.py` normalisation (anchors frozen).
 
 ---
 
@@ -197,7 +229,13 @@ python3 builder/build_configurator_v0.py                     # 5. build
   (Dress-1-to-3, ReWeaver) is papers, not products.
 - Rejected renderer changes: **AO/crevice darkening in folds** · fold-scale warp wiggle ·
   per-pixel sheen tint · mirror tiles · guessed pattern densities · lossy normal maps ·
-  anchoring the drape median at 128.
+  anchoring the drape median at 128 · **silhouette pattern wrap `SIL_WRAP` (Session 2 — torso is
+  already at SS parity; it regresses spread + swing and shears the sleeves)**.
+- **Crease depth's lever is the COMPOSITOR (`soften_drape`), not the base render** (Session 2,
+  measured stage-by-stage). Do not re-propose a hero-prompt crease change; the render is already
+  SS-deep.
+- **SS's "clean pinstripes" are drawn ~2× physical line-width** — a display idealisation, not
+  fidelity or per-panel wrap. Adopted as a gated line-width floor; don't chase it as a wrap fix.
 - Fabric names come from **Shopify**, never guessed from colour (5 of 10 were mislabelled that way).
 - Copy rule: suits are **made-to-measure, never "handcrafted"/"hand-tailored"**.
 
