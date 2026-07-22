@@ -601,10 +601,11 @@ function sheenLayer(){ // additive pass — multiply can only darken, sheen is w
 function resolveCut(){const s=CUTMAP[state.style]||CUTMAP["2-button"];const cut=s[state.lapel]||s["_"];return {cut,approx:!s[state.lapel]};}
 function render(){const {cut,approx}=resolveCut();
   const vv=(CUTVIEWS[cut]&&CUTVIEWS[cut].includes(curView))?curView:'front';
-  const A=cutAssets[cut+'__'+vv]||cutAssets[cut+'__front'];hx.clearRect(0,0,W,H);hx.drawImage(A.base,0,0);
+  const ck=cutAssets[cut+'__'+vv]?cut+'__'+vv:cut+'__front';   // asset key: cut x view
+  const A=cutAssets[ck];hx.clearRect(0,0,W,H);hx.drawImage(A.base,0,0);
   const f=FABRICS.find(x=>x.code===state.fabric);
   ox.setTransform(1,0,0,1,0,0);ox.clearRect(0,0,W,H);ox.globalCompositeOperation='source-over';
-  ox.drawImage(warpedCloth(cut,state.fabric),0,0);   // tiled at true scale for every cloth
+  ox.drawImage(warpedCloth(ck,state.fabric),0,0);   // tiled at true scale for every cloth
   ox.globalCompositeOperation='destination-in';ox.drawImage(A.drapeLA,0,0);
   ox.globalCompositeOperation='overlay';ox.drawImage(A.drapeLA,0,0);ox.globalCompositeOperation='source-over';
   hx.drawImage(off,0,0);
