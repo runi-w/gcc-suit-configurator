@@ -96,22 +96,6 @@ STRUCT_LIFT = 12
 # garment's median linear luminance matches the cloth's (Suitsupply measures 105% on the
 # same statistic). Was landing at 89 unnormalised => 70% of the cloth, i.e. visibly dark.
 DRAPE_TARGET_MED = 111.4
-# STRUCTURAL CREASE RESTORE (2026-07-21, crease-depth fix). The composite's crease depth
-# measured p1/med 0.25-0.27 vs Suitsupply's 0.031 — but the RENDER measures 0.060 and the
-# raw drape file 0.045: the depth exists and is destroyed HERE (the K-compression toward
-# 128, the exposure gain and the final blur together lift the deep tail ~3x, and the
-# overlay pass doubles it again). So after the locked pipeline runs, restore the deep tail
-# from the ORIGINAL drape: where the raw L is below CREASE_T, pull the output down toward
-# l*CREASE_K. Feathered over CREASE_F levels; collar-eased like the deepen (user rule).
-# This touches only px the raw drape already marks as structural creases (p1..p5 zone,
-# l<~46 at median 89) — folds live at l~71 and are untouched, so the locked BROAD_K/FOLD_K
-# look is preserved. NOT the STRUCT_T gate the 2026-07-21 note warns about: that proposal
-# REPLACED the ungated deepen (which is load-bearing for fold compression); this ADDS a
-# tail-only restore after it.
-CREASE_T = 58     # raw-drape level below which restore engages (creases ~17, shadow p5 ~39,
-CREASE_F = 18     # folds ~71 stay above it); feathered over CREASE_F levels
-CREASE_K = 0.32   # restored depth = min(current, l*CREASE_K + CREASE_B) — deeper than raw
-CREASE_B = 0.5
 
 def soften_drape(L_img, mask=None):
     # blur radii are in px and were tuned at BASE_W -> scale with the render width,
@@ -142,13 +126,7 @@ def soften_drape(L_img, mask=None):
         if med > 1:
             out = out * (DRAPE_TARGET_MED / med)
     im = Image.fromarray(_np.clip(out, 0, 255).astype('uint8'))
-    im = im.filter(_IF.GaussianBlur(DRAPE_SOFT_PX * RSCALE))
-    # structural crease restore — AFTER the softening blur so the restored creases stay
-    # crisp (SS creases are "near-black and CRISP"); the feather supplies the antialiasing.
-    base = _np.asarray(im, float)
-    w = _np.clip((CREASE_T - l) / CREASE_F, 0, 1) * strength
-    deep = _np.minimum(base, l * CREASE_K + CREASE_B)
-    return Image.fromarray(_np.clip(base + (deep - base) * w, 0, 255).astype('uint8'))
+    return im.filter(_IF.GaussianBlur(DRAPE_SOFT_PX * RSCALE))
 
 # The renders are shot on a near-white sweep (~246.6, std ~1). The approved design puts the
 # model on the cream stage, so a white plate would read as a hard box. Recolour the SWEEP
@@ -199,9 +177,7 @@ for cid, fn, openf in CUTS:
     ub = datauri(_fit(on_stage(Image.open(f"{HM}/renders/{fn}.png"))), "JPEG", quality=82, optimize=True)
     # the garment mask gates the exposure normalisation (hard threshold, per the standing rule)
     _m = _np.asarray(_fit(A).convert("L")) > 200
-    # q90: at q86 JPEG's near-black quantisation lifted the restored crease tail from
-    # p1/med 0.13 to 0.19 — the crease-depth fix is only as good as what survives encoding
-    ud = datauri(soften_drape(_fit(L).convert("L"), _m), "JPEG", quality=90, optimize=True)
+    ud = datauri(soften_drape(_fit(L).convert("L"), _m), "JPEG", quality=86, optimize=True)
     um = datauri(_fit(A).convert("L"), "PNG", optimize=True)
     # normal maps stay LOSSLESS — lossy codecs corrupt the vectors (JPEG q95 and WebP q95
     # both measured up to ~18-20 deg of angular error). WebP lossless is bit-exact
@@ -214,20 +190,6 @@ for cid, fn, openf in CUTS:
 # so it must be derived from H_FULL — cropping moves the viewport, not the model's scale.
 PX_PER_CM = (FIGURE_FRAC * H_FULL) / FIGURE_CM
 FABMETA = json.load(open(f"{FAB_DIR}/fabrics.json"))
-# Per-fabric BAKED STILLS — the Suitsupply fabric-step architecture (2026-07-21): at the
-# fabric step the stage shows the fabric's approved catalog image (one gorgeous per-fabric
-# bake) instead of the live composite; the compositor stays for the Style steps. URLs are
-# the Shopify-CDN catalog images (hotlinked deliberately: the page ships ON Shopify, and
-# data-URI-ing ~350KB x N stills would bloat the deliverable).
-# TEST ROLLOUT: one pinstripe. Add codes here to extend; back view enables automatically.
-# TEST RESULT (2026-07-21): the catalog still is a DIFFERENT model/pose than the house
-# model the compositor draws, so switching Fabric->Style swapped the man — user rejected it
-# ("it changes the whole model"). Disabled. The code path stays (works); re-enable only once
-# fabric stills are baked on the HOUSE model so the transition is seamless.
-STILLS = {
-    # "DBT6860": {"front": "...", "back": "..."},   # disabled — model-swap, see note above
-}
-
 fabs = []
 for m in FABMETA:
     tp = os.path.join(FAB_DIR, f"tile_{m['code']}.jpg")
@@ -246,10 +208,6 @@ for m in FABMETA:
         "cmPerTile": m["cmPerTile"], "onScreenPx": round(on_screen, 1),
         "price2pc": 575, "priceVest": 200,
     }
-    if m["code"] in STILLS:
-        fab["still"] = STILLS[m["code"]]["front"]
-        if STILLS[m["code"]].get("back"):
-            fab["stillBack"] = STILLS[m["code"]]["back"]
     if micro is not None:
         fab["micro"] = datauri(micro, "JPEG", quality=86, optimize=True)
     fabs.append(fab)
@@ -296,10 +254,6 @@ HTML = r"""<meta charset="utf-8"><meta name="viewport" content="width=device-wid
  /* ---- body: stage + right rail ---- */
  .main{flex:1;min-height:0;display:flex}
  .stage{flex:1;min-width:0;position:relative;display:flex;align-items:center;justify-content:center;background:var(--stage);overflow:hidden}
- /* per-fabric baked still — overlays the canvas at the Fabric step, fades in when loaded */
- .still{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;
-   transition:opacity .28s ease;pointer-events:none;visibility:hidden}
- .still.show{opacity:1;visibility:visible}
  canvas.hero{display:block}
  .approx{position:absolute;left:24px;top:18px;max-width:38%;font-size:11px;color:var(--soft);line-height:1.35}
  /* view control card, bottom-left of the stage */
@@ -422,7 +376,6 @@ HTML = r"""<meta charset="utf-8"><meta name="viewport" content="width=device-wid
  <div class="main">
   <div class="stage">
    <canvas class="hero" id="hero"></canvas>
-   <img class="still" id="still" alt="" draggable="false" crossorigin="anonymous">
    <div class="approx" id="approx"></div>
    <div class="viewbar">
     <button class="exp" id="expand" title="Expand the preview" aria-label="Expand the preview">
@@ -667,34 +620,14 @@ function selInfo(){const f=FABRICS.find(x=>x.code===state.fabric)||{};
   const kind=(f.kind==='pattern')?'Patterned':'Solid';
   return [f.name||'—','Elite Wool · '+kind+(f.code?' · '+f.code:'')];}
 function updateChrome(){const a=selInfo();const sn=document.getElementById('selName'),sm=document.getElementById('selMeta'),tv=document.getElementById('totVal');
-  if(sn)sn.textContent=a[0];if(sm)sm.textContent=a[1];if(tv)tv.textContent='$'+price().toLocaleString();
-  updateStill();}
-// ---- per-fabric baked still (Suitsupply fabric-step architecture) ----
-// At the Fabric step, fabrics that have an approved catalog still show it instead of the
-// live composite; the compositor takes over on the Style step. Back enables when the
-// fabric has a back still.
-let stillView='front';
-function updateStill(){
-  const f=FABRICS.find(x=>x.code===state.fabric)||{};
-  const img=document.getElementById('still');if(!img)return;
-  const vf=document.getElementById('viewFront'),vb=document.getElementById('viewBack');
-  const use=activeSection==='fabric'&&!!f.still;
-  if(use){
-    const src=(stillView==='back'&&f.stillBack)?f.stillBack:f.still;
-    if(img.getAttribute('src')!==src){img.classList.remove('show');img.onload=()=>img.classList.add('show');img.src=src;}
-    else img.classList.add('show');
-  }else{img.classList.remove('show');}
-  const canBack=use&&!!f.stillBack;
-  if(vb){vb.disabled=!canBack;vb.title=canBack?'':'Back view is not rendered yet';
-    vb.classList.toggle('on',canBack&&stillView==='back');}
-  if(vf)vf.classList.toggle('on',!(canBack&&stillView==='back'));}
+  if(sn)sn.textContent=a[0];if(sm)sm.textContent=a[1];if(tv)tv.textContent='$'+price().toLocaleString();}
 function buildDock(){renderTabs();renderPanel();
   const ac=document.getElementById('addCart');if(ac)ac.onclick=addToCart;
   const sl=document.getElementById('specLink');if(sl)sl.onclick=openTicket;
   const ex=document.getElementById('expand');
   if(ex)ex.onclick=()=>{document.getElementById('app').classList.toggle('zen');sizeHero();};
-  const vf=document.getElementById('viewFront');if(vf)vf.onclick=()=>{stillView='front';updateStill();};
-  const vb=document.getElementById('viewBack');if(vb)vb.onclick=()=>{stillView='back';updateStill();};}
+  // Front/Back: only front views are rendered, so Back stays disabled until back renders exist.
+  const vf=document.getElementById('viewFront');if(vf)vf.onclick=()=>{};}
 function nameOf(list,code,field){const o=(list||[]).find(x=>x.code===code);return o?(o.name||o.label||o[field]||code):code;}
 // Price = the fabric's own 2-piece price (+ its vest price for 3-piece) + monogram. Per-fabric prices come from the Shopify product; demo falls back to 575/200.
 function price(){const f=FABRICS.find(x=>x.code===state.fabric)||{};const base=(f.price2pc!=null?f.price2pc:575);const vest=(f.priceVest!=null?f.priceVest:200);return base+(curStyle().pieces===3?vest:0)+(state.mono.on?25:0);}
@@ -804,12 +737,7 @@ html = (HTML.replace("__CUTS__", json.dumps(cuts))
             .replace("__STAGE__", "#%02x%02x%02x" % STAGE_RGB)
             .replace("__WARP_AMP__", f"{6 * RSCALE:.2f}")
             .replace("__NSMOOTH__", str(max(1, round(12 * RSCALE))))
-            # cap 16->6.5 (2026-07-21): at 16 the displacement saturated (~30 canvas px, more
-            # than a whole stripe pitch) in strong concave creases — crotch, hem curls — and
-            # visibly S-bent the stripes there (user-flagged on DBT6860). 6.5 (=12 canvas px)
-            # straightens them while keeping the gentle silhouette bow; only 7.4% of garment
-            # px were above 12, all in those crease zones.
-            .replace("__WARP_CAP__", f"{6.5 * RSCALE:.2f}"))
+            .replace("__WARP_CAP__", f"{16 * RSCALE:.2f}"))
 open(OUT, "w").write(html)
 print(f"canvas {W}x{H} (full frame {W}x{H_FULL}, cropped to top {CROP_FRAC:.0%}); "
       f"px-scale constants x{RSCALE:.3f}; {os.path.getsize(OUT)/1048576:.2f} MB")

@@ -21,6 +21,19 @@ BLEND   = 0.22     # wrap-blend overlap fraction — kills the seam without mirr
 # pattern contrast toward the cloth's mean while leaving weave detail untouched. 1.0 = as scanned.
 PATTERN_CONTRAST = 0.68
 PATTERN_SCALE_PX = 10        # blur radius separating "pattern" from "weave"
+# Stripes run at 0.85 ("B", user-picked 2026-07-21 vs Suitsupply) — crisper lines than the
+# 0.68 default, which stays for checks/solids.
+CONTRAST_OVERRIDE = {'DBU080A': 0.85, 'DBT6860': 0.85, 'DBU081A': 0.85, 'DBS175A': 0.85}
+
+# ---- PRESTIGE WOOL test fabrics (2026-07-21, one per pattern family) ----
+# Source = KuteTailor's vendor swatches (GCC_Fabric_Handoff/prestige_swatches/, 1200x1200,
+# no DPI metadata). VERIFIED these are the SAME captures as the 300-DPI flatbed scans, just
+# resized: the Elite vendor image of DBU080A is pixel-identical cloth to hires_swatches'
+# scan, stripe period 421px vendor vs 280px scan = x1.50 ≈ the resize. Cross-calibrated on
+# 3 patterned Elite cloths -> implied ~172 px/cm (436.9 DPI). Scale chain intact, not guessed.
+PRESTIGE_SRC = "/Users/runiwillner/Desktop/GCC_Fabric_Handoff/prestige_swatches"
+PRESTIGE_DPI = 436.9
+PRESTIGE_CODES = {"DBS175A", "DBQ791A", "DBS171A", "DBV120A", "DBP665A"}
 
 # real Elite Wool names, taken from the Shopify products (not guessed from colour)
 FABRICS = [
@@ -34,7 +47,116 @@ FABRICS = [
     ("DBS137A",          "Grey Glen Check"),
     ("DBS139A",          "Navy Prince of Wales"),
     ("DEE1017 DBN317A",  "Charcoal Windowpane"),
+    ("DBT6860",          "Navy Chalk Stripe"),      # names from Shopify (sku search), per the rule
+    ("DBU081A",          "Charcoal Chalk Stripe"),
+    # Prestige Wool test set — names from Shopify, per the rule ("Prestige" prefix added
+    # to disambiguate from same-named Elite cloths in the test UI)
+    ("DBS175A",          "Prestige Grey Chalk Stripe"),
+    ("DBQ791A",          "Prestige Navy Fine Windowpane"),
+    ("DBS171A",          "Prestige Grey Prince of Wales"),
+    ("DBV120A",          "Prestige Grey Houndstooth"),
+    ("DBP665A",          "Prestige Forest Green"),
 ]
+
+# Vertical-stripe cloths get two source corrections (2026-07-21, user-flagged vs Suitsupply):
+#   1. DESKEW — the scans lean up to 1.1 deg (cloth not square on the platen); that lean baked
+#      into the tile is why our stripes leaned -2..-3.5 deg on the torso where SS holds +/-0.7.
+#   2. PERIOD-SNAP the crop — the wrap-blend cross-fades a 22% band; when the tile width is not
+#      an integer number of stripe periods the two edges are out of phase and a fifth of every
+#      tile gets double-exposed ghost stripes. Snap the crop to whole periods so the blend
+#      reinforces instead of ghosting. Solids/checks are unaffected (weave has no phase).
+STRIPE_CODES = {"DBU080A", "DBT6860", "DBU081A", "DBS175A"}
+# DISPLAY LINE-WIDTH FLOOR (2026-07-21, from the Suitsupply pinstripe study). Measured on
+# their production still: line contrast x4.3-5.0 (ours already x5.4+), but their lines are
+# ~2x PHYSICAL width — a deliberate display idealisation, because a true-scale 1-1.5mm pin
+# is sub-pixel at 10 px/cm and shimmers. Adopt the same: keep stripe PITCH at true scale
+# (locked standard), widen only the LINE so it never drops below MIN_LINE_CANVAS_PX on the
+# canvas. Applied to the tile's bright-line component only; ground cloth untouched.
+MIN_LINE_CANVAS_PX = 2.2
+PX_PER_CM_CANVAS   = 8.85    # garment-space px/cm in the builder (PX_PER_CM there)
+OVERSAMPLE_BUILD   = 2       # must match the builder OVERSAMPLE
+
+def widen_lines(tile, cm_per_tile, line_w_cm):
+    """Widen bright stripe lines HORIZONTALLY to the display floor. Restricted to the
+    line columns (weave untouched), x-only dilation (dashes keep their y-structure),
+    additive only where the widening extends past the original line. No-op if wide enough."""
+    line_w_canvas = line_w_cm * PX_PER_CM_CANVAS
+    if line_w_canvas >= MIN_LINE_CANVAS_PX:
+        return tile
+    px_per_cm_tile = tile.width / cm_per_tile
+    line_w_tile = line_w_cm * px_per_cm_tile
+    k = int(round(line_w_tile * (MIN_LINE_CANVAS_PX / line_w_canvas - 1)))
+    half = max(1, k // 2)
+    a = np.asarray(tile, float)
+    # 1D column profile finds the line columns
+    prof = a.mean((0, 2))
+    basep = np.convolve(np.pad(prof, 15, 'wrap'), np.ones(31)/31, 'same')[15:-15]
+    ln = np.clip(prof - basep - 2, 0, None)
+    if ln.max() <= 0:
+        return tile
+    colmask = ln > ln.max() * 0.25
+    for s in range(1, half + 1):                       # dilate the column window
+        colmask = colmask | np.roll(colmask, s) | np.roll(colmask, -s)
+    # per-pixel bright-line component, horizontal base so vertical dash structure survives
+    baseh = np.stack([np.apply_along_axis(
+        lambda r: np.convolve(np.pad(r, 15, 'wrap'), np.ones(31)/31, 'same')[15:-15],
+        1, a[..., c]) for c in range(3)], -1)
+    comp = np.clip(a - baseh - 4, 0, None) * colmask[None, :, None]
+    wide = comp.copy()
+    for s in range(1, half + 1):                       # x-only dilation
+        wide = np.maximum(wide, np.roll(comp, s, axis=1))
+        wide = np.maximum(wide, np.roll(comp, -s, axis=1))
+    return Image.fromarray(np.clip(a + np.clip(wide - comp, 0, None), 0, 255).astype('uint8'))
+
+def _stripe_centers(prof):
+    p = prof - np.convolve(prof, np.ones(61)/61, 'same')
+    th = p.mean() + 1.2 * p.std()
+    idx = np.where(p > th)[0]
+    if not len(idx): return []
+    return [g.mean() for g in np.split(idx, np.where(np.diff(idx) > 5)[0] + 1) if len(g) >= 2]
+
+def stripe_angle(im):
+    """dominant lean of the bright stripes, degrees from vertical (tracked centrelines)"""
+    a = np.asarray(im.convert('L'), float); H = a.shape[0]
+    nb = 8; bh = H // nb
+    rows = [_stripe_centers(a[b*bh:(b+1)*bh].mean(0)) for b in range(nb)]
+    angs = []
+    for s0 in rows[0]:
+        xs = [s0]
+        for b in range(1, nb):
+            c = [x for x in rows[b] if abs(x - xs[-1]) < 25]
+            if not c: xs = None; break
+            xs.append(min(c, key=lambda x: abs(x - xs[-1])))
+        if not xs or len(xs) < nb: continue
+        angs.append(np.degrees(np.arctan(np.polyfit(np.arange(nb)*bh + bh/2, xs, 1)[0])))
+    return float(np.median(angs)) if angs else 0.0
+
+def stripe_line_width(im):
+    """median bright-line width in px on the deskewed scan"""
+    prof = np.asarray(im.convert('L'), float).mean(0)
+    p = prof - np.convolve(prof, np.ones(61)/61, 'same')
+    th = p.mean() + 1.2 * p.std()
+    idx = np.where(p > th)[0]
+    if not len(idx): return 0.0
+    groups = [g for g in np.split(idx, np.where(np.diff(idx) > 5)[0] + 1) if len(g) >= 2]
+    return float(np.median([len(g) for g in groups])) if groups else 0.0
+
+def stripe_period(im):
+    """FULL motif repeat in px, on the deskewed scan. Autocorrelation of the column profile,
+    HIGHEST peak (not first): chalk stripes often alternate strong/faint companions, and the
+    centre-threshold spacing halves depending on which the detector catches — the full motif
+    is the lag where the profile truly repeats, and only that keeps the wrap-blend edges on
+    the SAME stripe type."""
+    prof = np.asarray(im.convert('L'), float).mean(0)
+    d = 61
+    p = prof - np.convolve(prof, np.ones(d)/d, 'same')
+    p = p[d:-d]
+    ac = np.correlate(p, p, 'full')[len(p)-1:]
+    ac /= ac[0] + 1e-9
+    n = len(ac) // 2                              # need >= 2 repeats inside the scan
+    peaks = [(ac[l], l) for l in range(30, n)
+             if ac[l] > ac[l-1] and ac[l] > ac[l+1] and ac[l] > 0.25]
+    return float(max(peaks)[1]) if peaks else 0.0
 
 def tame_pattern(tile, amount=PATTERN_CONTRAST, radius=PATTERN_SCALE_PX):
     """Reduce large-scale stripe/check contrast, keep yarn-scale weave fully intact."""
@@ -46,6 +168,12 @@ def tame_pattern(tile, amount=PATTERN_CONTRAST, radius=PATTERN_SCALE_PX):
     return Image.fromarray(np.clip(coarse + fine, 0, 255).astype('uint8'))
 
 def load(code):
+    code0 = code.split()[0]
+    if code0 in PRESTIGE_CODES:
+        p = os.path.join(PRESTIGE_SRC, code0 + ".jpg")
+        if not os.path.exists(p): return None, None
+        # vendor images carry no DPI metadata; scale is the cross-calibrated constant
+        return Image.open(p).convert("RGB"), PRESTIGE_DPI
     p = os.path.join(SRC, code + ".JPG")
     if not os.path.exists(p): return None, None
     im = Image.open(p)
@@ -91,11 +219,38 @@ for code, name in FABRICS:
         print(f"  !! missing {code}"); continue
     pxcm = dpi / 2.54
     crop_px = int(round(TILE_CM * pxcm))
+    code0 = code.split()[0]
+    if code0 in STRIPE_CODES:
+        ang = stripe_angle(im)
+        if abs(ang) > 0.05:
+            im = im.rotate(-ang, Image.BICUBIC)             # empirically verified: -ang zeroes the lean
+            marg = int(math.ceil(math.tan(math.radians(abs(ang))) * max(im.size))) + 2
+            im = im.crop((marg, marg, im.width - marg, im.height - marg))
+        per = stripe_period(im)
+        crop_px = min(crop_px, min(im.size))
+        if per > 20:                                        # snap to whole stripe periods
+            crop_px = max(1, int(crop_px / per)) * int(round(per))
+            crop_px = min(crop_px, min(im.size))
+        print(f"  {code0}: deskew {ang:+.2f} deg, period {per:.1f}px, tile {crop_px}px = {crop_px/pxcm:.2f}cm")
     crop_px = min(crop_px, min(im.size))                    # stay inside the scan
     cm_per_tile = crop_px / pxcm
     cx, cy = im.width // 2, im.height // 2
     sq = im.crop((cx-crop_px//2, cy-crop_px//2, cx+crop_px//2, cy+crop_px//2))
-    tile = tame_pattern(seamless_wrap(sq, TILE_PX))
+    tile = tame_pattern(seamless_wrap(sq, TILE_PX),
+                        amount=CONTRAST_OVERRIDE.get(code0, PATTERN_CONTRAST))
+    if code0 in STRIPE_CODES:
+        # The floor only helps thin lines on wide pitch. Verified 2026-07-21: DBT6860
+        # (0.6px line / 27px pitch) lands the SS look; but lines already >=1px wide get
+        # overdriven into awning stripes (DBU081A), and pitches under ~10 canvas px can't
+        # hold a 2.2px line at all — they merge into bands (DBS175A). Those stay true-scale.
+        lw_cm = stripe_line_width(im) / pxcm
+        lw_px = lw_cm * PX_PER_CM_CANVAS
+        pitch_px = (per / pxcm) * PX_PER_CM_CANVAS if per > 0 else 0
+        if lw_cm > 0 and lw_px < 1.0 and pitch_px > 10:
+            tile = widen_lines(tile, cm_per_tile, lw_cm)
+            print(f"  {code0}: line {lw_cm*10:.1f}mm = {lw_px:.1f}px canvas, pitch {pitch_px:.0f}px -> floored to {MIN_LINE_CANVAS_PX}")
+        else:
+            print(f"  {code0}: line {lw_cm*10:.1f}mm = {lw_px:.1f}px canvas, pitch {pitch_px:.0f}px -> true scale (no floor)")
 
     # --- material params derived from the cloth itself (weave and pattern measured at DIFFERENT scales) ---
     Lm = np.asarray(tile.convert("L"), float)
@@ -116,13 +271,18 @@ for code, name in FABRICS:
                                      for w, c in zip((.2126, .7152, .0722), mean_rgb))), 4),
                        rgb=[round(v) for v in mean_rgb], lab=[round(v,1) for v in lab]))
 
-# ---- second pass: normalise across the actual observed range, then bake micro-normals ----
-wv = np.array([r["weave"] for r in report]); pt = np.array([r["pattern"] for r in report])
-wlo, whi = float(wv.min()), float(wv.max())
-norm = lambda v, lo, hi: 0.0 if hi <= lo else (v - lo) / (hi - lo)
-PAT_THRESH = float(np.median(pt)) * 1.25   # data-driven, not a guessed constant
+# ---- second pass: normalise against ABSOLUTE anchors, then bake micro-normals ----
+# Frozen 2026-07-21 from the original 10-fabric batch (weave 9.32-61.04, pattern median
+# 0.75 x 1.25). Per-batch normalisation meant ADDING a fabric shifted every existing
+# sheen/relief value — the documented blocker for the 117 batch (HANDOVER §6.5). With the
+# anchors frozen, params are a pure function of the cloth. Clamped, so an outlier cloth
+# outside the anchored range saturates instead of stretching everyone else.
+WEAVE_LO, WEAVE_HI = 9.32, 61.04
+PAT_THRESH = 0.9375
+wlo, whi = WEAVE_LO, WEAVE_HI
+norm = lambda v, lo, hi: min(1.0, max(0.0, (v - lo) / (hi - lo)))
 
-print(f"\nweave range {wlo:.1f}–{whi:.1f} | pattern median {np.median(pt):.2f} -> threshold {PAT_THRESH:.2f}\n")
+print(f"\nweave anchors {wlo:.1f}–{whi:.1f} (frozen) | pattern threshold {PAT_THRESH:.2f} (frozen)\n")
 print(f"{'code':9} {'name':22} {'cm/tile':>8} {'weave':>6} {'patt':>6} {'sheen':>6} {'relief':>7}  kind")
 for r in report:
     t = norm(r["weave"], wlo, whi)

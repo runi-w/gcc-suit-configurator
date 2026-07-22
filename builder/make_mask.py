@@ -27,6 +27,26 @@ BLUE_BIAS  = 8       # B >= R - 8 : neutral-to-bluish, excludes warm skin and br
 BG_V, BG_S = 0.90, 0.06
 CLEAN      = 5       # morphological radius (px at 1792 wide)
 FEATHER    = 0.8       # smaller: the ramp already supplies the soft edge
+# SKIN-BOUNCE RECLAIM (2026-07-21). Trouser pixels next to the hands catch warm reflected
+# light, fail the BLUE_BIAS test, and get carved out of the mask in ragged blobs — the
+# mid-grey base then shows through the composite as a smudge around each hand (invisible
+# on grey cloths, obvious on navy). Measured on the notch render: those spill pixels read
+# R-B +12 (p90 +18) where real skin reads +52 and up (p10) — a clean margin. Reclaim
+# darkish px warmer than BLUE_BIAS but below WARM_SPILL, only ADJACENT to confident
+# garment (dilated interior) and only BELOW SPILL_Y0 (hair reads R-B p10 +13, so the
+# collar/head zone must stay strict).
+WARM_SPILL = 22
+SPILL_Y0   = 0.35
+SPILL_R    = 31      # MaxFilter kernel (px): "adjacent to garment" reach
+# SHOE CUT (2026-07-21). Black shoes pass every colour test (dark + neutral) so ~95% of
+# shoe px were composited as garment. Invisible while the cloths were grey (grey pattern
+# on black leather at near-black drape), but a navy cloth's bright pin stripes render
+# straight across the leather (user-flagged). Detect the shoe top per column — the first
+# sustained run of leather-dark rows in the shoe band — and zero the mask from there down.
+# Leather body V < ~0.13; the trouser hem above it stays 0.25-0.45 even in the break shadow.
+SHOE_Y0  = 0.855     # shoes exist only below this fraction of height
+SHOE_V   = 0.13      # leather-body darkness
+SHOE_RUN = 8         # consecutive dark rows that mean "leather", not a crease shadow
 
 
 def suit_mask(img, clean=CLEAN, feather=FEATHER):
@@ -56,6 +76,62 @@ def suit_mask(img, clean=CLEAN, feather=FEATHER):
     interior = np.asarray(hard.filter(ImageFilter.MinFilter(clean))).astype(np.float32) / 255.0
 
     alpha = np.maximum(ramp, interior)
+
+    # skin-bounce reclaim — see constants above
+    warm = a[..., 0] - a[..., 2]
+    spill_ramp = np.clip((V_MAX + 0.10 - V) / 0.16, 0, 1) * (warm < WARM_SPILL) * ~bg
+    near = np.asarray(Image.fromarray(((interior > 0.5) * 255).astype("uint8"))
+                      .filter(ImageFilter.MaxFilter(SPILL_R))) > 127
+    below = np.zeros_like(near)
+    below[int(alpha.shape[0] * SPILL_Y0):, :] = True
+    alpha = np.maximum(alpha, spill_ramp * (near & below))
+
+    # INTERIOR HOLE FILL (2026-07-21). Sleeve/shoulder highlights on some renders exceed
+    # the darkness ceiling and punch grey holes mid-garment (peak sleeve, visible as grey
+    # blotches on navy). Fill any ENCLOSED non-garment pixel that is neutral and mid-dark;
+    # the shirt stays a hole (bright) and the hands stay holes (warm).
+    from PIL import ImageDraw as _ID
+    inv = Image.fromarray((((alpha <= 0.5)) * 255).astype("uint8"))
+    _ID.floodfill(inv, (0, 0), 128)
+    for pt in [(inv.width - 1, 0), (0, inv.height - 1), (inv.width - 1, inv.height - 1)]:
+        if inv.getpixel(pt) == 255:
+            _ID.floodfill(inv, pt, 128)
+    encl = np.asarray(inv) == 255
+    fill = encl & (a[..., 0] - a[..., 2] < 15) & (V < 0.72)
+    alpha = np.where(fill, 1.0, alpha)
+
+    # shoe cut — see constants above
+    h = alpha.shape[0]
+    y0 = int(h * SHOE_Y0)
+    dark = V[y0:, :] < SHOE_V
+    c = np.cumsum(dark, axis=0)
+    run = np.zeros_like(dark)
+    run[SHOE_RUN:, :] = (c[SHOE_RUN:, :] - c[:-SHOE_RUN, :]) == SHOE_RUN   # ends of full runs
+    has = run.any(axis=0)
+    start = np.where(has, run.argmax(axis=0) - SHOE_RUN, dark.shape[0])    # top of the run
+    # climb through the dim vamp / break-shadow rows above the leather run (the shoe's top
+    # rows sit in the hem's shadow at V 0.13-0.24 and escaped the dark-run test — the right
+    # shoe kept faint stripes). Stop at clearly-lit trouser cloth.
+    Vb = V[y0:, :]
+    for _ in range(25):
+        can = has & (start > 0)
+        dim = np.take_along_axis(Vb, np.maximum(start - 1, 0)[None, :], axis=0)[0] < 0.24
+        step = can & dim
+        start = start - step.astype(int)
+        if not step.any(): break
+    # regional hull: columns at the shoe edges (highlight/penumbra) have no clean leather
+    # run and kept their cloth all the way down, leaving translucent vertical bands beside
+    # each shoe. Take the running MIN of start over ±15 columns so the cut covers the whole
+    # shoe blob; columns further than that from any shoe are untouched.
+    startf = np.where(has, start, 10 ** 6).astype(np.int32)
+    hull = startf.copy()
+    for s in range(1, 16):
+        hull = np.minimum(hull, np.roll(startf, s))
+        hull = np.minimum(hull, np.roll(startf, -s))
+    rows = np.arange(dark.shape[0])[:, None]
+    cut = rows >= np.maximum(hull, 0)[None, :] - 2
+    alpha[y0:, :] = np.where(cut & (hull[None, :] < 10 ** 6), 0, alpha[y0:, :])
+
     im = Image.fromarray(np.clip(alpha * 255, 0, 255).astype("uint8"))
     return im.filter(ImageFilter.GaussianBlur(feather))
 

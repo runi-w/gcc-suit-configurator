@@ -155,23 +155,23 @@
   "name": "Grey Chalk Stripe",
   "dpi": 300.0,
   "pxPerCm": 118.11,
-  "cmPerTile": 7.0,
+  "cmPerTile": 4.89,
   "tilePx": 384,
-  "weave": 32.28,
-  "pattern": 2.48,
-  "meanLum": 0.0938,
+  "weave": 36.53,
+  "pattern": 4.18,
+  "meanLum": 0.089,
   "rgb": [
-   87,
-   86,
-   88
+   85,
+   84,
+   85
   ],
   "lab": [
-   36.7,
+   35.8,
    0.8,
-   -0.7
+   -0.8
   ],
-  "sheen": 0.171,
-  "relief": 1.28,
+  "sheen": 0.184,
+  "relief": 1.38,
   "kind": "pattern"
  },
  {
@@ -247,6 +247,181 @@
   ],
   "sheen": 0.144,
   "relief": 1.06,
+  "kind": "pattern"
+ },
+ {
+  "code": "DBT6860",
+  "file": "DBT6860",
+  "name": "Navy Chalk Stripe",
+  "dpi": 300.0,
+  "pxPerCm": 118.11,
+  "cmPerTile": 6.06,
+  "tilePx": 384,
+  "weave": 20.8,
+  "pattern": 9.99,
+  "meanLum": 0.0297,
+  "rgb": [
+   44,
+   48,
+   62
+  ],
+  "lab": [
+   19.9,
+   2.1,
+   -9.6
+  ],
+  "sheen": 0.136,
+  "relief": 0.99,
+  "kind": "pattern"
+ },
+ {
+  "code": "DBU081A",
+  "file": "DBU081A",
+  "name": "Charcoal Chalk Stripe",
+  "dpi": 300.0,
+  "pxPerCm": 118.11,
+  "cmPerTile": 5.22,
+  "tilePx": 384,
+  "weave": 25.17,
+  "pattern": 2.34,
+  "meanLum": 0.0319,
+  "rgb": [
+   50,
+   50,
+   52
+  ],
+  "lab": [
+   20.8,
+   0.6,
+   -1.1
+  ],
+  "sheen": 0.149,
+  "relief": 1.1,
+  "kind": "pattern"
+ },
+ {
+  "code": "DBS175A",
+  "file": "DBS175A",
+  "name": "Prestige Grey Chalk Stripe",
+  "dpi": 436.9,
+  "pxPerCm": 172.01,
+  "cmPerTile": 6.47,
+  "tilePx": 384,
+  "weave": 45.1,
+  "pattern": 2.26,
+  "meanLum": 0.0751,
+  "rgb": [
+   78,
+   77,
+   81
+  ],
+  "lab": [
+   32.9,
+   1.3,
+   -2.3
+  ],
+  "sheen": 0.211,
+  "relief": 1.6,
+  "kind": "pattern"
+ },
+ {
+  "code": "DBQ791A",
+  "file": "DBQ791A",
+  "name": "Prestige Navy Fine Windowpane",
+  "dpi": 436.9,
+  "pxPerCm": 172.01,
+  "cmPerTile": 6.98,
+  "tilePx": 384,
+  "weave": 20.47,
+  "pattern": 1.1,
+  "meanLum": 0.0218,
+  "rgb": [
+   40,
+   40,
+   49
+  ],
+  "lab": [
+   16.4,
+   2.4,
+   -5.9
+  ],
+  "sheen": 0.134,
+  "relief": 0.98,
+  "kind": "pattern"
+ },
+ {
+  "code": "DBS171A",
+  "file": "DBS171A",
+  "name": "Prestige Grey Prince of Wales",
+  "dpi": 436.9,
+  "pxPerCm": 172.01,
+  "cmPerTile": 6.98,
+  "tilePx": 384,
+  "weave": 63.52,
+  "pattern": 2.21,
+  "meanLum": 0.1338,
+  "rgb": [
+   104,
+   102,
+   104
+  ],
+  "lab": [
+   43.3,
+   1.4,
+   -0.9
+  ],
+  "sheen": 0.26,
+  "relief": 2.0,
+  "kind": "pattern"
+ },
+ {
+  "code": "DBV120A",
+  "file": "DBV120A",
+  "name": "Prestige Grey Houndstooth",
+  "dpi": 436.9,
+  "pxPerCm": 172.01,
+  "cmPerTile": 6.98,
+  "tilePx": 384,
+  "weave": 63.81,
+  "pattern": 2.93,
+  "meanLum": 0.1462,
+  "rgb": [
+   109,
+   106,
+   107
+  ],
+  "lab": [
+   45.1,
+   1.3,
+   -0.1
+  ],
+  "sheen": 0.26,
+  "relief": 2.0,
+  "kind": "pattern"
+ },
+ {
+  "code": "DBP665A",
+  "file": "DBP665A",
+  "name": "Prestige Forest Green",
+  "dpi": 436.9,
+  "pxPerCm": 172.01,
+  "cmPerTile": 6.98,
+  "tilePx": 384,
+  "weave": 29.65,
+  "pattern": 1.38,
+  "meanLum": 0.0945,
+  "rgb": [
+   67,
+   92,
+   78
+  ],
+  "lab": [
+   36.8,
+   -12.8,
+   5.3
+  ],
+  "sheen": 0.163,
+  "relief": 1.21,
   "kind": "pattern"
  }
 ]

@@ -1,4 +1,5 @@
-I'm continuing work on the Gage Court suit configurator.
+I'm continuing work on the Gage Court suit configurator. Everything is in
+~/Desktop/GCC_House_Model/ (a git repo, committed locally — nothing pushed yet).
 
 Read these first, in this order:
 - ~/Desktop/GCC_House_Model/HANDOVER.md — full state, file layout, locked constants, next actions
@@ -7,7 +8,12 @@ Read these first, in this order:
 
 Rebuild (byte-identical, all paths absolute):
   cd ~/Desktop/GCC_House_Model/builder && python3 build_configurator_v0.py
-Preview over http:// (not file://).
+Preview over http:// (not file://). Live preview artifact:
+  https://claude.ai/code/artifact/d1bb05f8-0a3e-42b6-b87c-5338010b729b
+
+CREDENTIALS: never in the repo. Gemini key + KuteTailor creds live in
+~/Desktop/GCC_Fabric_Handoff/keys/ and are read at runtime. Don't inline any secret.
+The git history is clean from commit one — keep it that way.
 
 SETTLED — do not relitigate:
 - 2D compositing, NOT real-time 3D. Proven from live production assets that Suitsupply and
@@ -15,6 +21,7 @@ SETTLED — do not relitigate:
 - Do NOT add AO / crevice darkening in folds. Tried, rejected, and Suitsupply measurably have none.
 - Our asset count is fabric-independent (we composite cloth at runtime). ~126 renders covers every
   visible option across all 117 cloths. Do NOT copy Suitsupply's 25,000-layer per-fabric approach.
+- AI cannot do the garment CAD (researched July 2026). Don't re-propose it as a shortcut.
 - Fabric names come from Shopify, never guessed from colour.
 - Suits are made-to-measure — never "handcrafted" or "hand-tailored".
 
@@ -33,5 +40,17 @@ CURRENT STATE (measured vs Suitsupply's photographic model layer):
            no moire, specular 3.08 vs their 3.30, on-screen density 9.95 vs their 10.3 px/cm.
   GAPS:    crease depth 0.24 vs their 0.032 (~7x lighter)
            pattern wrap: ours 5.4 deg of noise vs their 22.7 deg monotonic swing
+  NOTE: only the `notch` cut has the new house model; the other 4 cuts still use old renders, so
+        the man changes when you switch cut. Expected — fixed by generating the remaining 14.
+
+TOP NEXT ACTIONS (full list in HANDOVER.md section 6):
+  1. Pattern wrap (SIL_WRAP) — implemented in buildWarpNormal, validated on the torso, DISABLED
+     because hw[y] spans the whole row so the sleeves get sheared as if they were the torso.
+     Needs per-panel centre/width (torso vs each sleeve). Target: swing 22.7deg, spread 16.7deg,
+     monotonic. Measure with: python3 audit/pattern_map.py
+  2. Crease depth — lever is the base render's own creases (a hero prompt change), not the
+     compositor. Decide before generating the other 14.
+  3. Generate the remaining 14 renders — plan/MODEL_BIBLE.md has the spec, order, and all prompts.
+  4. Push to GitHub — private repo under runi-w, matching fabric-stock-checker; PAT in Keychain.
 
 WHAT I WANT TO WORK ON: [FILL IN]
