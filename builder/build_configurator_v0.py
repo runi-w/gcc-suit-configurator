@@ -190,25 +190,39 @@ def _fit(im):
     must be cropped identically or the composite tears."""
     return im.resize((W, H_FULL), Image.LANCZOS).crop((0, 0, W, H))
 
+# cut x VIEW. Each cut's front filename is front_<base>; side/back share the base with a
+# swapped prefix. A view is embedded only when all three assets exist, so the build works
+# incrementally while sides/backs are still being generated. id = "<cut>__<view>".
+VIEWS = ["front", "side", "back"]
+cutviews = {}
 for cid, fn, openf in CUTS:
-    la = Image.open(f"{HM}/drape_maps/{fn}_drape.png")
-    if H is None:
-        H_FULL = int(W * la.height / la.width)
-        H = int(H_FULL * CROP_FRAC)
-    L, A = la.split()
-    ub = datauri(_fit(on_stage(Image.open(f"{HM}/renders/{fn}.png"))), "JPEG", quality=82, optimize=True)
-    # the garment mask gates the exposure normalisation (hard threshold, per the standing rule)
-    _m = _np.asarray(_fit(A).convert("L")) > 200
-    # q90: at q86 JPEG's near-black quantisation lifted the restored crease tail from
-    # p1/med 0.13 to 0.19 — the crease-depth fix is only as good as what survives encoding
-    ud = datauri(soften_drape(_fit(L).convert("L"), _m), "JPEG", quality=90, optimize=True)
-    um = datauri(_fit(A).convert("L"), "PNG", optimize=True)
-    # normal maps stay LOSSLESS — lossy codecs corrupt the vectors (JPEG q95 and WebP q95
-    # both measured up to ~18-20 deg of angular error). WebP lossless is bit-exact
-    # (0.000 deg, verified 2026-07-21) and ~27% smaller than PNG.
-    un = datauri(_fit(Image.open(f"{HM}/drape_maps/{fn}_normal.png").convert("RGB")),
-                 "WEBP", lossless=True, quality=100)
-    cuts.append({"id": cid, "base": ub, "drape": ud, "mask": um, "normal": un, "openFront": openf})
+    for view in VIEWS:
+        vfn = fn.replace("front_", view + "_", 1)
+        rp, dpth, npth = (f"{HM}/renders/{vfn}.png", f"{HM}/drape_maps/{vfn}_drape.png",
+                          f"{HM}/drape_maps/{vfn}_normal.png")
+        if not (os.path.exists(rp) and os.path.exists(dpth) and os.path.exists(npth)):
+            continue
+        la = Image.open(dpth)
+        if H is None:
+            H_FULL = int(W * la.height / la.width)
+            H = int(H_FULL * CROP_FRAC)
+        L, A = la.split()
+        ub = datauri(_fit(on_stage(Image.open(rp))), "JPEG", quality=82, optimize=True)
+        # the garment mask gates the exposure normalisation (hard threshold, per the standing rule)
+        _m = _np.asarray(_fit(A).convert("L")) > 200
+        # q90: at q86 JPEG's near-black quantisation lifted the restored crease tail from
+        # p1/med 0.13 to 0.19 — the crease-depth fix is only as good as what survives encoding
+        ud = datauri(soften_drape(_fit(L).convert("L"), _m), "JPEG", quality=90, optimize=True)
+        um = datauri(_fit(A).convert("L"), "PNG", optimize=True)
+        # normal maps stay LOSSLESS — lossy codecs corrupt the vectors (JPEG q95 and WebP q95
+        # both measured up to ~18-20 deg of angular error). WebP lossless is bit-exact
+        # (0.000 deg, verified 2026-07-21) and ~27% smaller than PNG.
+        un = datauri(_fit(Image.open(npth).convert("RGB")), "WEBP", lossless=True, quality=100)
+        # openFront (front-opening seam/lapel break) is a FRONT-view property only
+        cuts.append({"id": f"{cid}__{view}", "base": ub, "drape": ud, "mask": um, "normal": un,
+                     "openFront": bool(openf and view == "front")})
+        cutviews.setdefault(cid, []).append(view)
+print("  cut-views embedded: " + ", ".join(f"{k}[{'/'.join(v)}]" for k, v in cutviews.items()))
 
 # px/cm is a property of the FULL frame's geometry (FIGURE_FRAC is measured against it),
 # so it must be derived from H_FULL — cropping moves the viewport, not the model's scale.
@@ -429,7 +443,8 @@ HTML = r"""<meta charset="utf-8"><meta name="viewport" content="width=device-wid
      <svg viewBox="0 0 24 24"><path d="M15 3h6v6M21 3l-7 7M9 21H3v-6M3 21l7-7"/></svg>
     </button>
     <button id="viewFront" class="on">Front</button>
-    <button id="viewBack" disabled title="Back view is not rendered yet">Back</button>
+    <button id="viewSide">Side</button>
+    <button id="viewBack">Back</button>
    </div>
   </div>
   <div class="rail">
@@ -450,7 +465,8 @@ HTML = r"""<meta charset="utf-8"><meta name="viewport" content="width=device-wid
   <div class="x"><button class="p" id="copyCodes">Copy make ticket</button><button id="copyJson">Copy order JSON</button><button id="closeDlg">Close</button></div>
 </div></dialog>
 <script>
-const CUTS=__CUTS__, OPTS=__OPTS__;
+const CUTS=__CUTS__, CUTVIEWS=__CUTVIEWS__, OPTS=__OPTS__;
+let curView='front';   // front | side | back — orthogonal to the cut (style) choice
 // Fabrics: the demo set by default; when embedded on Shopify we fetch the live collection (see bootstrap at end) and reassign.
 const DEMO_FABRICS=__FABRICS__;
 let FABRICS=(window.GCC_FABRICS&&window.GCC_FABRICS.length)?window.GCC_FABRICS:DEMO_FABRICS;
@@ -583,7 +599,9 @@ function sheenLayer(){ // additive pass — multiply can only darken, sheen is w
     d[i*4]=s;d[i*4+1]=s;d[i*4+2]=s;d[i*4+3]=255;}
   sheenX.putImageData(im,0,0);return sheenC;}
 function resolveCut(){const s=CUTMAP[state.style]||CUTMAP["2-button"];const cut=s[state.lapel]||s["_"];return {cut,approx:!s[state.lapel]};}
-function render(){const {cut,approx}=resolveCut();const A=cutAssets[cut];hx.clearRect(0,0,W,H);hx.drawImage(A.base,0,0);
+function render(){const {cut,approx}=resolveCut();
+  const vv=(CUTVIEWS[cut]&&CUTVIEWS[cut].includes(curView))?curView:'front';
+  const A=cutAssets[cut+'__'+vv]||cutAssets[cut+'__front'];hx.clearRect(0,0,W,H);hx.drawImage(A.base,0,0);
   const f=FABRICS.find(x=>x.code===state.fabric);
   ox.setTransform(1,0,0,1,0,0);ox.clearRect(0,0,W,H);ox.globalCompositeOperation='source-over';
   ox.drawImage(warpedCloth(cut,state.fabric),0,0);   // tiled at true scale for every cloth
@@ -657,7 +675,7 @@ function renderMono(){const g=el('div','grp');g.appendChild(el('span','lbl','Mon
   return g;}
 function renderTabs(){const t=document.getElementById('tabs');if(!t)return;t.innerHTML='';
   SECTIONS.forEach(sec=>{const b=el('button','tab'+(sec.key===activeSection?' on':''));b.textContent=sec.label;
-    b.onclick=()=>{activeSection=sec.key;renderTabs();renderPanel();};t.appendChild(b);});}
+    b.onclick=()=>{activeSection=sec.key;renderTabs();renderPanel();render();};t.appendChild(b);});}
 // back-compat: older call sites (and the Shopify bootstrap) still say renderStrip()
 function renderStrip(){renderPanel();}
 // The rail footer always describes the CLOTH — that is the thing a customer wants named.
@@ -673,28 +691,37 @@ function updateChrome(){const a=selInfo();const sn=document.getElementById('selN
 // At the Fabric step, fabrics that have an approved catalog still show it instead of the
 // live composite; the compositor takes over on the Style step. Back enables when the
 // fabric has a back still.
-let stillView='front';
+// Front/Side/Back drive curView for the live compositor. When a fabric still is showing
+// (Fabric tab), views instead follow the still's availability (front + optional back).
+function updateViewButtons(){
+  const {cut}=resolveCut();const avail=CUTVIEWS[cut]||['front'];
+  const f=FABRICS.find(x=>x.code===state.fabric)||{};
+  const stillOn=activeSection==='fabric'&&!!f.still;
+  const has={front:true,
+             side: !stillOn && avail.includes('side'),
+             back: stillOn ? !!f.stillBack : avail.includes('back')};
+  if(!has[curView])curView='front';
+  [['viewFront','front'],['viewSide','side'],['viewBack','back']].forEach(([id,v])=>{
+    const b=document.getElementById(id);if(!b)return;
+    b.disabled=!has[v];b.title=has[v]?'':(v+' view not available yet');
+    b.classList.toggle('on',curView===v);});}
 function updateStill(){
   const f=FABRICS.find(x=>x.code===state.fabric)||{};
   const img=document.getElementById('still');if(!img)return;
-  const vf=document.getElementById('viewFront'),vb=document.getElementById('viewBack');
   const use=activeSection==='fabric'&&!!f.still;
   if(use){
-    const src=(stillView==='back'&&f.stillBack)?f.stillBack:f.still;
+    const src=(curView==='back'&&f.stillBack)?f.stillBack:f.still;
     if(img.getAttribute('src')!==src){img.classList.remove('show');img.onload=()=>img.classList.add('show');img.src=src;}
     else img.classList.add('show');
   }else{img.classList.remove('show');}
-  const canBack=use&&!!f.stillBack;
-  if(vb){vb.disabled=!canBack;vb.title=canBack?'':'Back view is not rendered yet';
-    vb.classList.toggle('on',canBack&&stillView==='back');}
-  if(vf)vf.classList.toggle('on',!(canBack&&stillView==='back'));}
+  updateViewButtons();}
 function buildDock(){renderTabs();renderPanel();
   const ac=document.getElementById('addCart');if(ac)ac.onclick=addToCart;
   const sl=document.getElementById('specLink');if(sl)sl.onclick=openTicket;
   const ex=document.getElementById('expand');
   if(ex)ex.onclick=()=>{document.getElementById('app').classList.toggle('zen');sizeHero();};
-  const vf=document.getElementById('viewFront');if(vf)vf.onclick=()=>{stillView='front';updateStill();};
-  const vb=document.getElementById('viewBack');if(vb)vb.onclick=()=>{stillView='back';updateStill();};}
+  [['viewFront','front'],['viewSide','side'],['viewBack','back']].forEach(([id,v])=>{
+    const b=document.getElementById(id);if(b)b.onclick=()=>{if(b.disabled)return;curView=v;render();};});}
 function nameOf(list,code,field){const o=(list||[]).find(x=>x.code===code);return o?(o.name||o.label||o[field]||code):code;}
 // Price = the fabric's own 2-piece price (+ its vest price for 3-piece) + monogram. Per-fabric prices come from the Shopify product; demo falls back to 575/200.
 function price(){const f=FABRICS.find(x=>x.code===state.fabric)||{};const base=(f.price2pc!=null?f.price2pc:575);const vest=(f.priceVest!=null?f.priceVest:200);return base+(curStyle().pieces===3?vest:0)+(state.mono.on?25:0);}
@@ -795,7 +822,8 @@ async function loadShopifyFabrics(){
 (async function(){ if(onShopify()){const sf=await loadShopifyFabrics(); if(sf){FABRICS=sf; state.fabric=sf[0].code;}} init(); })();
 </script>
 """
-html = (HTML.replace("__CUTS__", json.dumps(cuts))
+html = (HTML.replace("__CUTVIEWS__", json.dumps(cutviews))
+            .replace("__CUTS__", json.dumps(cuts))
             .replace("__FABRICS__", json.dumps(fabs))
             .replace("__OPTS__", json.dumps(OPTS))
             .replace("__PAT_DENSITY__", str(OVERSAMPLE))

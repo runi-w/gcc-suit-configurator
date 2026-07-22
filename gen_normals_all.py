@@ -22,7 +22,7 @@ STEPS = int(os.environ.get("N_STEPS", 4))
 RES   = int(os.environ.get("N_RES", 768))
 # fp16 on MPS produces NaNs (degenerate maps) -> use fp32. Env N_DTYPE=fp16 to override.
 DTYPE = torch.float16 if os.environ.get("N_DTYPE") == "fp16" else torch.float32
-CUTS = ["front_2button_notch", "front_2button_peak", "front_1button_peak",
+CUTS = sys.argv[1:] or ["front_2button_notch", "front_2button_peak", "front_1button_peak",
         "front_doublebreasted", "front_3piece_vest"]
 
 log(f"=== START normals: steps={STEPS} res={RES} cuts={len(CUTS)} ===")

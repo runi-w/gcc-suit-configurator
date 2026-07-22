@@ -15,7 +15,7 @@ Usage:
 """
 import sys
 import numpy as np
-from PIL import Image, ImageFilter
+from PIL import Image, ImageFilter, ImageDraw
 
 HM = "/Users/runiwillner/Desktop/GCC_House_Model"
 CUTS = ["front_2button_notch", "front_2button_peak", "front_1button_peak",
@@ -90,13 +90,13 @@ def suit_mask(img, clean=CLEAN, feather=FEATHER):
     # the darkness ceiling and punch grey holes mid-garment (peak sleeve, visible as grey
     # blotches on navy). Fill any ENCLOSED non-garment pixel that is neutral and mid-dark;
     # the shirt stays a hole (bright) and the hands stay holes (warm).
-    from PIL import ImageDraw as _ID
-    inv = Image.fromarray((((alpha <= 0.5)) * 255).astype("uint8"))
-    _ID.floodfill(inv, (0, 0), 128)
-    for pt in [(inv.width - 1, 0), (0, inv.height - 1), (inv.width - 1, inv.height - 1)]:
-        if inv.getpixel(pt) == 255:
-            _ID.floodfill(inv, pt, 128)
-    encl = np.asarray(inv) == 255
+    # NB: ImageDraw.floodfill is a silent no-op on 'L' images in Pillow 11.3 — run it on RGB.
+    inv_a = ((alpha <= 0.5) * 255).astype("uint8")
+    inv = Image.fromarray(np.repeat(inv_a[..., None], 3, axis=2))
+    for pt in [(0, 0), (inv.width - 1, 0), (0, inv.height - 1), (inv.width - 1, inv.height - 1)]:
+        if inv.getpixel(pt)[0] == 255:
+            ImageDraw.floodfill(inv, pt, (128, 128, 128))
+    encl = np.asarray(inv)[..., 0] == 255
     fill = encl & (a[..., 0] - a[..., 2] < 15) & (V < 0.72)
     alpha = np.where(fill, 1.0, alpha)
 
@@ -131,6 +131,23 @@ def suit_mask(img, clean=CLEAN, feather=FEATHER):
     rows = np.arange(dark.shape[0])[:, None]
     cut = rows >= np.maximum(hull, 0)[None, :] - 2
     alpha[y0:, :] = np.where(cut & (hull[None, :] < 10 ** 6), 0, alpha[y0:, :])
+
+    # KEEP THE CONNECTED GARMENT BLOB (2026-07-22). On the cooler side/back renders the hair
+    # is dark-and-neutral enough to pass the classifier — it sits above the collar as a blob
+    # SEPARATE from the suit (the neck / white-collar sliver is the gap). Flood-fill from a
+    # seed deep inside the garment and drop everything not connected to it; the jacket and
+    # trousers overlap at the waist so they are one blob. Harmless on the front (the hair was
+    # already excluded there, so the largest blob is unchanged).
+    binm = alpha > 0.5
+    colsum = binm.sum(0)
+    if colsum.max() > 0:
+        sx = int(np.argmax(colsum))
+        rows = np.where(binm[:, sx])[0]
+        sy = int(rows[len(rows) // 2])   # an ACTUAL garment row (median value could be a gap)
+        ff = Image.fromarray(np.repeat((binm * 255).astype("uint8")[..., None], 3, axis=2))
+        ImageDraw.floodfill(ff, (sx, sy), (128, 128, 128))
+        keep = np.asarray(ff)[..., 0] == 128
+        alpha = alpha * keep
 
     im = Image.fromarray(np.clip(alpha * 255, 0, 255).astype("uint8"))
     return im.filter(ImageFilter.GaussianBlur(feather))
