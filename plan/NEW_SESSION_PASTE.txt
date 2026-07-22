@@ -1,56 +1,75 @@
 I'm continuing work on the Gage Court suit configurator. Everything is in
-~/Desktop/GCC_House_Model/ (a git repo, committed locally — nothing pushed yet).
+~/Desktop/GCC_House_Model/ (a git repo). Local commits through `6666b3f`; also pushed to a
+PRIVATE GitHub repo under runi-w (see `git remote -v`).
 
 Read these first, in this order:
-- ~/Desktop/GCC_House_Model/HANDOVER.md — full state, file layout, locked constants, next actions
-- the `gcc-pattern-render-playbook` memory — THE STANDARD for fabric rendering. It is locked and
-  carries a tried-and-rejected list. Read before touching any rendering code.
+- ~/Desktop/GCC_House_Model/HANDOVER.md — full state, file layout, locked constants, §6 next
+  actions. The Session 3 block at the top of §2 is the most recent state.
+- ~/Desktop/GCC_House_Model/plan/PATH_A_RESEARCH_PLAN.md — the APPROVED plan we're executing now
+  (per-panel pattern wrap: research first, then implement).
+- the `gcc-pattern-render-playbook` memory — THE STANDARD for fabric rendering (locked,
+  user-approved, with a tried-and-rejected list). Read before touching any rendering code.
 
-Rebuild (byte-identical, all paths absolute):
+Rebuild (paths absolute):
   cd ~/Desktop/GCC_House_Model/builder && python3 build_configurator_v0.py
-Preview over http:// (not file://). Live preview artifact:
-  https://claude.ai/code/artifact/d1bb05f8-0a3e-42b6-b87c-5338010b729b
+Preview over http:// (not file://):
+  cd ~/Desktop/GCC_House_Model && python3 -m http.server 8731    # then open configurator-v0.html
 
 CREDENTIALS: never in the repo. Gemini key + KuteTailor creds live in
-~/Desktop/GCC_Fabric_Handoff/keys/ and are read at runtime. Don't inline any secret.
-The git history is clean from commit one — keep it that way.
+~/Desktop/GCC_Fabric_Handoff/keys/ and are read at runtime. Don't inline any secret; keep the git
+history clean.
+
+WHERE WE ARE (Session 3, 2026-07-22):
+- ALL 5 CUTS are now the SAME man, and FRONT / SIDE / BACK all exist and work (15 renders, view
+  toggle wired). The "man changes when you switch cut" problem is solved.
+- 17 cloths; crease depth fixed (in the compositor); stripes deskewed with the SS-style line
+  floor; mask hair/shoe/shoulder bugs fixed.
+- The compositor bends a global-vertical stripe over the body via the Marigold normal + one
+  front-seam phase break. It CANNOT rotate the stripe grain per panel — so lapels/sleeves don't
+  run in the correct direction yet. THAT is the current thrust.
+
+CURRENT THRUST — PATH A (live per-panel pattern wrap). The user chose this over AI-baking the
+pinstripes. A Python prototype (`builder/pathA_prototype.py`, run it) already PROVED it's feasible:
+segment the garment into panels, give each its own grain → lapels come out diagonal, torso stays
+vertical. But the angles were GUESSED and the seams are ragged. So we do RESEARCH FIRST, per the
+approved plan:
+  R1 deep research on how striped/checked suits are cut & pattern-matched per panel;
+  R2 measure Suitsupply's EXACT per-panel stripe angles (audit/pattern_map.py) — do in-thread;
+  R3 live-configurator teardown (any per-panel-live approach? UV conventions?);
+  R4 synthesise a PER-PANEL GRAIN SPEC {panel → mechanism + target angle + seam rule};
+  THEN port the prototype into the compositor (buildWarpNormal / warpedCloth), reusing the
+  disabled SIL_WRAP machinery. Cover all directional patterns (stripe/check/windowpane/glen).
+Tasks #9 (R1/R3) and #10 (R2) are already created for this.
+
+THE CRUX QUESTION the research must answer (per panel): is the apparent stripe tilt driven by
+(a) the 3D surface (normal-driven), (b) the panel's silhouette-width taper (the SIL_WRAP model),
+or (c) a deliberate cut grain? Likely a mix. Getting this wrong sends the implementation the wrong
+way. Torso is already at SS parity — do NOT regress it.
 
 SETTLED — do not relitigate:
-- 2D compositing, NOT real-time 3D. Proven from live production assets that Suitsupply and
-  Hockerty are both pre-rendered 2D layer stacks. Don't propose 3D.
-- Do NOT add AO / crevice darkening in folds. Tried, rejected, and Suitsupply measurably have none.
-- Our asset count is fabric-independent (we composite cloth at runtime). ~126 renders covers every
-  visible option across all 117 cloths. Do NOT copy Suitsupply's 25,000-layer per-fabric approach.
-- AI cannot do the garment CAD (researched July 2026). Don't re-propose it as a shortcut.
+- 2D compositing, NOT real-time 3D (proven: SS + Hockerty are baked 2D layer stacks).
+- Do NOT add AO / crevice darkening in folds (tried, rejected; SS folds are flatter than ours).
+- Torso pattern wrap is ALREADY at SS parity. Global `SIL_WRAP` is rejected (shears sleeves with
+  no per-panel segmentation) — Path A fixes that by making it per-panel.
+- Crease depth's lever is the COMPOSITOR (soften_drape), not the base render. Fixed.
+- SS's "clean pins" are drawn ~2× physical line-width — a display idealisation, not wrap.
 - Fabric names come from Shopify, never guessed from colour.
-- Suits are made-to-measure — never "handcrafted" or "hand-tailored".
+- AI cannot do the garment CAD (researched July 2026). Suits are made-to-measure — never
+  "handcrafted" / "hand-tailored".
 
-MEASUREMENT RULES (each of these already cost a wasted round):
-- Hard-mask alpha>200, and erode 3px on a variance mask. The anti-aliased edge band inflated
-  measured specular from 3.3 to 10.9 and looked like a real defect.
-- Compare images at MATCHED px/cm. Mismatched density made our pattern look 2x wobblier than it is.
-- Use Suitsupply's `ai-generated/ai-model` layer as reference, never their flat `Jacket/model`
-  layers — a garment with no body inside has neckline-cavity darks ours can't have.
-- audit/period.py is unreliable (locks onto harmonics). Settle scale questions visually.
-- Metrics miss things. An edge-roughness metric rated a broken mask identical to a good one; only
-  a 6x visual zoom found it. Always look at the image, don't just trust the number.
+MEASUREMENT RULES (each already cost a wasted round):
+- Compare pattern at MATCHED px/cm (raw 49° vs 23° was a resolution artifact; at matched density
+  it's parity). Resample to a common density first.
+- Use Suitsupply's `ai-generated/ai-model` layer as reference, never their flat garment layers.
+- audit/period.py is unreliable — settle scale/wrap questions VISUALLY.
+- Metrics miss things; always LOOK at the image (6× zoom), don't just trust the number.
+- Hard-mask alpha>200, erode ~3px on a variance mask when measuring composites.
 
-CURRENT STATE (measured vs Suitsupply's photographic model layer):
-  MATCHED: colour 98% of the mill scan, pattern scale 0.99x true, sharpness 95% of true cloth,
-           no moire, specular 3.08 vs their 3.30, on-screen density 9.95 vs their 10.3 px/cm.
-  GAPS:    crease depth 0.24 vs their 0.032 (~7x lighter)
-           pattern wrap: ours 5.4 deg of noise vs their 22.7 deg monotonic swing
-  NOTE: only the `notch` cut has the new house model; the other 4 cuts still use old renders, so
-        the man changes when you switch cut. Expected — fixed by generating the remaining 14.
+MACHINE CONSTRAINT: 8 GB M1. Marigold (normal maps) swap-thrashes with Chrome open (~1 hr/render);
+close Chrome + run `finish_renders.sh` (uses N_RES=448, ~5 min/render). Heavy compute off-hours.
 
-TOP NEXT ACTIONS (full list in HANDOVER.md section 6):
-  1. Pattern wrap (SIL_WRAP) — implemented in buildWarpNormal, validated on the torso, DISABLED
-     because hw[y] spans the whole row so the sleeves get sheared as if they were the torso.
-     Needs per-panel centre/width (torso vs each sleeve). Target: swing 22.7deg, spread 16.7deg,
-     monotonic. Measure with: python3 audit/pattern_map.py
-  2. Crease depth — lever is the base render's own creases (a hero prompt change), not the
-     compositor. Decide before generating the other 14.
-  3. Generate the remaining 14 renders — plan/MODEL_BIBLE.md has the spec, order, and all prompts.
-  4. Push to GitHub — private repo under runi-w, matching fabric-stock-checker; PAT in Keychain.
+KNOWN, non-blocking: the deliverable is 10.87 MB (embeds 15 renders) — over the Shopify page
+budget; lazy-load/host the side/back assets before embedding (HANDOVER §6 #2).
 
-WHAT I WANT TO WORK ON: [FILL IN]
+WHAT I WANT TO WORK ON: [FILL IN — default: execute the Path A research plan (R1–R4), starting
+with R2 (measure SS per-panel angles) + R1/R3 (deep research), then synthesise the spec.]

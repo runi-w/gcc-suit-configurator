@@ -19,16 +19,37 @@ sales/month**. That volume is why real-time 3D and per-fabric photography are ou
 
 ## 2. Current state
 
-- **`configurator-v0.html`** — self-contained, **3.52 MB**, data-URIs, zero external refs.
-- **Right-rail UI** (user-approved design): full-length model on a cream stage; rail with 3 tabs
-  (Fabric / Style / Measurements), 3-up swatch grid + cloth filter, pinned cloth footer.
-  Expand + Front/Back card bottom-left. Collapses to stacked layout under 900px.
-- **New house model** — regenerated 2026-07-21, black shoes, tieless. **Only the `notch` cut has
-  the new model**; the other four cuts still use the old renders, so the man changes when you
-  change cut. Expected — fixed by generating the remaining 14.
-- **17 cloths** — 10 Elite + 2 new Elite pinstripes (DBT6860, DBU081A) + 5 Prestige test
-  (DBS175A, DBQ791A, DBS171A, DBV120A, DBP665A), all named from Shopify.
+- **`configurator-v0.html`** — self-contained, **10.87 MB** (grew 3.5×: now embeds 15 renders
+  incl. side/back), data-URIs, zero external refs. ⚠ **Too heavy for a Shopify embed** — lazy-load
+  or externally host the side/back assets before embedding (§6 item).
+- **Right-rail UI** (user-approved). Stage + rail (Fabric / Style / Measurements). Bottom-left card
+  now has a working **Front / Side / Back** view toggle.
+- **17 cloths** — 10 Elite + 2 Elite pinstripes (DBT6860, DBU081A) + 5 Prestige test.
 - Add-to-cart → Shopify container product; "View details" → real KuteTailor `saveOrder` spec.
+
+### ⭐⭐ Session 3 (2026-07-22) — consistent man, front/side/back, Path A prototype (commits `a4bb539`→`6666b3f`)
+
+- **ALL 5 CUTS now the SAME man, and FRONT/SIDE/BACK all exist.** Regenerated the 4 non-notch
+  fronts off the notch hero (identity held) + generated 10 side/back renders → 15 total. The "man
+  changes when you switch cut" problem is GONE. Pipeline: `gen_model.py` (hero as ref) →
+  `normalize_render.py` → shoe-neutralise → `make_mask` → `make_drape` → Marigold → build. Marigold
+  ran at **N_RES=448** (~5 min/render, Chrome closed to free RAM — the 8GB M1 swap-thrashes at
+  768/apps-open; `finish_renders.sh` is the one-shot). `gen_normals_all.py` now takes cut names as
+  args.
+- **View dimension WIRED** in the builder: assets keyed `"<cut>__<view>"`; `CUTVIEWS` per-cut
+  availability; Front/Side/Back control drives `curView`; `render()` uses `cutAssets[cut+'__'+vv]`.
+  All 15 cut-views load, 0 console errors.
+- **Mask fixes** (`make_mask.py`): **connected-component keep** (drops the hair blob the classifier
+  catches on cooler side/back); **shoulder-highlight reclaim** (grey shoulder patches on side/back
+  were mid-tone cloth in the ramp's partial-alpha zone — full alpha to neutral interior cloth V
+  0.50-0.85, silhouette edge kept soft); **found + fixed** `ImageDraw.floodfill` being a silent
+  no-op on 'L' images in Pillow 11.3 (RGB now). Added fast separable `_dilate`.
+- **PATH A prototype BUILT** (`builder/pathA_prototype.py`) — proved live per-panel pinstripe wrap
+  is feasible: segment garment into panels, grain per panel → lapels diagonal, torso vertical.
+  Angles were GUESSED; seams ragged. **Next step is the approved research plan
+  `plan/PATH_A_RESEARCH_PLAN.md`** (measure SS per-panel angles + tailoring convention + resolve
+  the grain-rotation-vs-surface-vs-taper question), THEN port into the compositor. User chose Path A
+  (live per-panel) over AI-baking the pinstripes.
 
 ### ⭐ Session 2 (2026-07-22) — what changed since the table below was written (commit `0e66499`)
 
@@ -170,26 +191,33 @@ python3 builder/build_configurator_v0.py                     # 5. build
 
 ---
 
-## 6. Next actions, in priority order (revised Session 2, 2026-07-22)
+## 6. Next actions, in priority order (revised Session 3, 2026-07-22)
 
-1. **Generate the remaining 14 renders** — THE prerequisite for everything (the man changes when
-   the cut changes; every bake path depends on consistent cuts first). `plan/MODEL_BIBLE.md` has
-   the full spec, order (hero → 4 fronts → sides/backs) and all prompts. Hero (`notch`) is approved.
-2. **Wire the view dimension** — `CUTS` maps one filename per cut; needs cut × view, and the
-   Front/Back control needs connecting (styled; the `STILLS`/still-swap code already toggles it).
-3. **Difficulty-routing bake (per `plan/RESEARCH_FINDINGS.md`)** — the drape/wrap path for the hard
-   fabrics. FIRST run the **validation gate**: bake a chalk-stripe + a windowpane onto the
-   *standing* `renders/front_2button_notch.png` via the catalog Gemini recipe and compare wrap vs
-   the compositor (the recipe was only ever proven on the *walking* catalog model). If it passes,
-   AI-bake only the ~27–29 bold directional patterns; keep the compositor for the rest.
-4. **Batch all 117 fabrics** — now UNBLOCKED (normalisation anchors frozen Session 2); spot-check
-   outliers.
-5. **Shopify embed** — `themeFilesUpsert` onto theme 149240774843 → `pageCreate`. ⚠ deliverable is
-   3.76 MB (grew with q90 drape + 7 fabrics); check the page budget.
+1. **PATH A — per-panel pattern wrap (the current thrust).** User chose live per-panel wrap over
+   AI-baking pinstripes. **Execute `plan/PATH_A_RESEARCH_PLAN.md`** (APPROVED): (R1) deep research
+   on how striped/checked suits are cut & pattern-matched per panel; (R2) measure SS's exact
+   per-panel stripe angles with `audit/pattern_map.py` (I do in-thread); (R3) live-configurator
+   teardown for any per-panel-live approach + UV conventions; (R4) synthesise a **per-panel grain
+   spec** {panel → mechanism (surface / silhouette-width / cut-grain) + target angle + seam rule}.
+   THEN port `builder/pathA_prototype.py` into the live compositor (`buildWarpNormal`/`warpedCloth`),
+   reusing the disabled `SIL_WRAP` machinery. Covers all directional patterns (stripe/check/
+   windowpane/glen). Torso is at parity — **do not regress it**.
+2. **Trim the deliverable size** — 10.87 MB is over the Shopify page budget (was the plan's §2
+   flag). Lazy-load or externally host the side/back render assets so the initial page stays light.
+3. **Shopify embed** — `themeFilesUpsert` onto theme 149240774843 → `pageCreate` (after #2).
+4. **Difficulty-routing bake fallback (`plan/RESEARCH_FINDINGS.md`)** — only if Path A quality is
+   judged insufficient: AI-bake the ~27–29 bold directional fabrics onto the STANDING render (run
+   the validation gate first). Path A is preferred (one-time, all-fabrics, live).
+5. **Batch all 117 fabrics** — UNBLOCKED (anchors frozen); spot-check outliers.
 6. **Register `orders/paid` webhook** + wire the backend.
 
-**DONE Session 2 (was #1/#2/#5):** pattern wrap (rejected — already at parity), crease depth (fixed
-in the compositor, not the render), `prep_fabrics.py` normalisation (anchors frozen).
+**Minor known defects (noted, non-blocking):** deliverable size (10.87 MB, #2 above); the 4
+non-notch cuts' side/back inherit no new issues but were never QA'd on colored cloth beyond the
+shoulder fix; a 2-3px soft sliver at the extreme shoulder silhouette edge on side/back (natural).
+
+**DONE Session 3:** 14 renders + consistent man across cuts, front/side/back views wired, mask
+hair/shoe/shoulder fixes, Path A prototype. **DONE Session 2:** pattern wrap (rejected as global),
+crease depth (compositor fix), prep normalisation (anchors frozen), stripe deskew + line floor.
 
 ---
 
