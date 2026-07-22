@@ -1,6 +1,6 @@
 # Gage Court Suit Configurator — Handover
 
-_Last updated 2026-07-21 (late). Everything needed to pick this up cold._
+_Last updated 2026-07-22 (Session 4). Everything needed to pick this up cold._
 
 ---
 
@@ -18,6 +18,115 @@ sales/month**. That volume is why real-time 3D and per-fabric photography are ou
 ---
 
 ## 2. Current state
+
+### ⭐⭐⭐ Session 4 (2026-07-22) — Path A research plan EXECUTED, grain spec delivered
+
+Ran `plan/PATH_A_RESEARCH_PLAN.md`'s R1-R4 to completion. Full result:
+**`plan/PATH_A_GRAIN_SPEC.md`** — read that before touching the compositor. Summary:
+
+- **Two mechanisms, not three.** The crux question's silhouette-width-taper option (`SIL_WRAP`)
+  is now confirmed absent from *every* reference measured this session (a flat CAD panel sweep on
+  a fresh live asset, on top of the already-known torso result) — don't resurrect it per-panel.
+- **Lapel: NEW fixed-angle rotation, ±11° from vertical**, mirrored L/R. Measured from
+  Suitsupply's photographic hero still, cross-checked against an isolated flat CAD `lapel` layer
+  pulled live off their CDN (which reads ~3x steeper, ~30° — that's their stylized configurator
+  icon, not physically representative; we target the photo-real number since our renders are
+  photographic-quality like their hero shot, not their icon).
+- **Sleeve: probably no new mechanism needed** — measured ±5°, but recommend verifying the
+  *existing* normal-driven warp against that target (once the sleeve has its own panel mask)
+  before writing a new fixed-rotation path, since Marigold's normal map is a real capture of the
+  sleeve's own geometry.
+- **Collar: NEW fixed-angle rotation, ~85-90°** (near-horizontal) — well-grounded by R1's deep
+  research: the undercollar is conventionally cut on the true bias for structural reasons
+  (3-0 vote, 4+ independent tailoring sources).
+- **Seam rules (R1):** center-back is a **collar-continuity phase match, not a mirror** — the two
+  back panels sit one repeat apart at the collar, gap varies down the back; sleeve matches the
+  body at **one prominent line at the chest/armhole junction only**, rest is free; pocket
+  jett/flap matching is a **genuine, named disagreement between bespoke houses** (no single right
+  answer — default to inheriting the panel's grain); checks/windowpane get the same seam
+  priorities as stripes, just a stricter 2D (both-axis) match requirement at whichever seams do
+  get matched.
+- **No prior art anywhere.** Surveyed Proper Cloth, Indochino, Black Lapel, Threekit, Unspun,
+  MTailor, Son of a Tailor — nobody publicly does live per-panel pattern wrap. Targets had to come
+  from measurement + tailoring convention, not from copying a competitor.
+- **Asset-identity correction:** `audit/ss/model_*.png` were mis-identified as waistcoat layers
+  in earlier sessions — live teardown confirms they're actually Suitsupply's `Jacket/model`
+  component (the torso shell with sleeves/lapel/pockets removed, composited separately). Doesn't
+  change any prior conclusion (Session 2's torso-parity measurement was comparing the right thing
+  either way) but worth knowing if you go back to those files.
+- **Tooling:** `audit/panel_angles.py` rewritten (was buggy — the coherence ratio it inherited
+  from `pattern_map.py` blows up on flat/uniform regions, background or a cutout's own silhouette
+  edge, and reads as false "pattern"; fixed with a real subject mask + energy floor + optional
+  erosion). Use this, not `pattern_map.py` directly, for any future per-panel angle work —
+  including the sleeve/back verification the spec above calls for as still-open.
+- **Not done this session (deliberately — research-first per the approved plan):** no compositor
+  code changed. `plan/PATH_A_GRAIN_SPEC.md`'s "Implementation sequencing" section is the next
+  session's starting point.
+- **Addendum (same day): checks/windowpane, not just stripes.** The R2 measurement above is
+  stripe-only. Went back and visually confirmed (isolated native-res check-fabric layers pulled
+  live) that a check's grid rotates as ONE RIGID UNIT on the lapel — both axes tilt together,
+  staying perpendicular — same qualitative behavior as a stripe. **This means Path A's planned
+  fixed-angle rotation needs no separate 2D-pattern code path** — it's a coordinate rotation, so it
+  rotates whatever's in the tile automatically. A hard quantitative angle number for checks
+  specifically wasn't obtained (the stripe measurement method doesn't transfer — see the addendum
+  in the spec for the real technical reason) but isn't needed given the mechanism finding.
+- **Addendum 2 (same day): cross-checked against real, non-Suitsupply suit photography —
+  ±11°/±5° are now FLOOR estimates, not final targets.** Every number so far came from one source
+  family (Suitsupply). Pulled two independent real photos from Permanent Style (a checked jacket,
+  a chalk-stripe DB) and re-measured. The mechanism held up (lapel tilts, torso doesn't); the
+  **magnitude didn't** — the real checked jacket's lapel visually read as 15-30°, well above the
+  11° the single Suitsupply photo gave. Sleeve re-measurement hit its own catch: an automated
+  reading that "converged" cleanly to +11-12° turned out, on inspecting a diagnostic overlay, to
+  be measuring the sleeve's own silhouette edge against the background, not the pinstripes at
+  all — once corrected, the real signal was too noisy in that particular photo to get a clean
+  number. **Implement Path A with 11°/5° as starting points, then tune by eye against the render**
+  — don't treat them as fixed. Full detail + the methodological lesson (automated angle
+  measurement is reliable on studio photography and CDN layers, not on casual/editorial real
+  photos) is in `plan/PATH_A_GRAIN_SPEC.md`'s "Addendum 2".
+- **Addendum 3 (same day): confirmed directly with KuteTailor that their factory actually does
+  this.** The render only matters if the delivered garment can reflect it — checked
+  `platform.kutetailor.com` (logged in as the ARUAP account) and found a real, orderable house
+  product (`26AWM2P203`/`DBV9300`, a check DB jacket) whose own 18 product photos show the exact
+  same pattern-matching behavior as everything else this session: lapel tilts, body stays
+  orthogonal. **Their cutters can and do produce this** — strongest possible evidence, since it's
+  KuteTailor's own manufactured sample, not a competitor's marketing photo. Caveat: the order
+  platform's preview is a fixed hero photo per style (doesn't regenerate per fabric swatch), and
+  there's no pattern-matching field anywhere in their craft-code catalog to explicitly request or
+  verify it per order — so this is strong evidence of *capability*, not a per-order guarantee.
+  Detail in `plan/PATH_A_GRAIN_SPEC.md`'s "Addendum 3".
+
+### ⭐⭐ Session 4 (same day) — Suitsupply render-architecture teardown
+
+Follow-on to the grain-spec work: a full technical audit of Suitsupply's live configurator's
+rendering engineering (layers/dimensions/style-code taxonomy, explicitly NOT sizing/UI). Full
+result: **`plan/SS_RENDER_ARCHITECTURE_SPEC.md`**. Headline: **it validates GCC's own
+architecture rather than changing it.**
+
+- **Exact-percentage proof that Suitsupply's geometry is fixed per style, fabric-independent**
+  (99.9%+ pixel-identical alpha masks across two different fabrics, same style) — the same
+  architecture GCC's compositor already uses (one mask per cut, cloth swapped at runtime).
+- **Confirmed their jacket has NO live per-panel pattern rotation to reverse-engineer** — it's 11
+  pre-baked PNG layers per fabric SKU (model/shoulder/lining/chest-pocket/lapel/pocket/buttons×3/
+  stitching×2), offline-rendered, not computed client-side. Trousers get 3 rotation angles (33
+  images total); waistcoat is 5 layers, captured for the first time this session. Jacket itself
+  has NO side/back view in their tool at all (front only) — confirms the existing
+  `gcc-pattern-render-playbook` memory note on this rather than adding anything new.
+- **Delivered canvas is a fixed 900×1125 for every layer**; native/source resolution is much
+  higher and differs by garment (jacket 3280×4100, trousers 2000×2500) — same aspect ratio as
+  delivery, clean downscale. Confirms GCC's own 1792×2400→W=1300 relationship is the same shape
+  of decision, just scaled to GCC's budget.
+- **Style-code taxonomy decoded:** every layer's path is `{shared prefix}_{layer-specific
+  suffix}` — changing Closure updates the prefix on all 11 layers at once; each layer's own
+  suffix only changes when that specific option changes. DB closures auto-default the lapel to
+  Peak (sticky, independently editable after) — matches GCC's own `CUTMAP` constraint
+  (`build_configurator_v0.py:483-484`) at the underlying-convention level.
+- **Re-verified the Session 3/4 asset-identity question a second, independent way** (direct pixel
+  comparison of fresh isolated jacket vs. waistcoat pulls against the local `model_*.png` files)
+  — confirms the correction already made above; `model_*.png` really is the jacket, not the
+  waistcoat.
+- **No action items for the compositor** — this was a validation pass, not a gap-finder. See the
+  spec's "What this means for GCC" section for the point-by-point mapping to `buildPanels`/
+  `buildWarpNormal`/`warpedCloth`.
 
 - **`configurator-v0.html`** — self-contained, **10.87 MB** (grew 3.5×: now embeds 15 renders
   incl. side/back), data-URIs, zero external refs. ⚠ **Too heavy for a Shopify embed** — lazy-load
@@ -191,17 +300,21 @@ python3 builder/build_configurator_v0.py                     # 5. build
 
 ---
 
-## 6. Next actions, in priority order (revised Session 3, 2026-07-22)
+## 6. Next actions, in priority order (revised Session 4, 2026-07-22)
 
-1. **PATH A — per-panel pattern wrap (the current thrust).** User chose live per-panel wrap over
-   AI-baking pinstripes. **Execute `plan/PATH_A_RESEARCH_PLAN.md`** (APPROVED): (R1) deep research
-   on how striped/checked suits are cut & pattern-matched per panel; (R2) measure SS's exact
-   per-panel stripe angles with `audit/pattern_map.py` (I do in-thread); (R3) live-configurator
-   teardown for any per-panel-live approach + UV conventions; (R4) synthesise a **per-panel grain
-   spec** {panel → mechanism (surface / silhouette-width / cut-grain) + target angle + seam rule}.
-   THEN port `builder/pathA_prototype.py` into the live compositor (`buildWarpNormal`/`warpedCloth`),
-   reusing the disabled `SIL_WRAP` machinery. Covers all directional patterns (stripe/check/
-   windowpane/glen). Torso is at parity — **do not regress it**.
+1. **PATH A — implement the grain spec (the current thrust).** Research is DONE —
+   **`plan/PATH_A_GRAIN_SPEC.md`** is the deliverable, read it first. Implementation sequencing
+   (from that doc): (a) extend `buildPanels` from today's binary left/right-of-button split to a
+   real segmentation (torso-L/R, lapel-L/R, sleeve-L/R, collar), refining
+   `builder/pathA_prototype.py`'s geometric approach; (b) add a fixed-rotation sampling path in
+   `buildWarpNormal`/`warpedCloth` for lapel (±11°) and collar (~85-90°) — reuse the disabled
+   `SIL_WRAP` machinery's per-panel *shape*, but as a rigid rotation, not a width-taper term;
+   (c) verify the sleeve against the existing normal-driven mechanism (±5° target) before writing
+   anything new for it; (d) implement the center-back collar-continuity phase rule and the sleeve
+   one-line chest/armhole phase anchor, generalizing the current single `SEAM_PHASE` constant
+   (front-opening only today). Torso is at parity — **do not regress it**. Verify with
+   `audit/panel_angles.py` (rewritten this session, use it not `pattern_map.py` directly) at
+   matched px/cm + the standing 6× visual check.
 2. **Trim the deliverable size** — 10.87 MB is over the Shopify page budget (was the plan's §2
    flag). Lazy-load or externally host the side/back render assets so the initial page stays light.
 3. **Shopify embed** — `themeFilesUpsert` onto theme 149240774843 → `pageCreate` (after #2).
@@ -215,9 +328,11 @@ python3 builder/build_configurator_v0.py                     # 5. build
 non-notch cuts' side/back inherit no new issues but were never QA'd on colored cloth beyond the
 shoulder fix; a 2-3px soft sliver at the extreme shoulder silhouette edge on side/back (natural).
 
-**DONE Session 3:** 14 renders + consistent man across cuts, front/side/back views wired, mask
-hair/shoe/shoulder fixes, Path A prototype. **DONE Session 2:** pattern wrap (rejected as global),
-crease depth (compositor fix), prep normalisation (anchors frozen), stripe deskew + line floor.
+**DONE Session 4:** Path A research plan (R1-R4) executed — `plan/PATH_A_GRAIN_SPEC.md` delivered;
+`audit/panel_angles.py` fixed (was silently wrong on flat/uniform regions). **DONE Session 3:** 14
+renders + consistent man across cuts, front/side/back views wired, mask hair/shoe/shoulder fixes,
+Path A prototype. **DONE Session 2:** pattern wrap (rejected as global), crease depth (compositor
+fix), prep normalisation (anchors frozen), stripe deskew + line floor.
 
 ---
 
