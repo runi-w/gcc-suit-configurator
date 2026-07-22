@@ -38,6 +38,16 @@ FEATHER    = 0.8       # smaller: the ramp already supplies the soft edge
 WARM_SPILL = 22
 SPILL_Y0   = 0.35
 SPILL_R    = 31      # MaxFilter kernel (px): "adjacent to garment" reach
+# BRIGHT-HIGHLIGHT RECLAIM (2026-07-22). Grey cloth catching light on the shoulders (mostly
+# side/back) is brighter than the V_MAX ceiling, drops out of the mask, and shows as grey
+# patches on coloured cloth. Measured on back_2button_notch: those px read V 0.55-0.72,
+# saturation ~0.07, R-B ~+8; skin in the same V band reads saturation 0.24+ and R-B +46+, the
+# white shirt/sweep read V 0.85+. So reclaim bright-but-not-white, LOW-saturation, low-warmth
+# px adjacent to confident garment — saturation + warmth exclude skin, the V ceiling the shirt.
+HILIGHT_V = 0.85     # brightness ceiling (strictly below the white shirt/sweep/square 0.87+)
+HILIGHT_S = 0.15     # saturation ceiling (cloth highlight ~0.07; skin ~0.24+)
+HILIGHT_W = 18       # R-B ceiling (cloth ~+8; skin ~+46+)
+HILIGHT_R = 41       # adjacency reach from the garment mask itself (thin shoulder tops)
 # SHOE CUT (2026-07-21). Black shoes pass every colour test (dark + neutral) so ~95% of
 # shoe px were composited as garment. Invisible while the cloths were grey (grey pattern
 # on black leather at near-black drape), but a navy cloth's bright pin stripes render
@@ -47,6 +57,17 @@ SPILL_R    = 31      # MaxFilter kernel (px): "adjacent to garment" reach
 SHOE_Y0  = 0.855     # shoes exist only below this fraction of height
 SHOE_V   = 0.13      # leather-body darkness
 SHOE_RUN = 8         # consecutive dark rows that mean "leather", not a crease shadow
+
+
+def _dilate(b, r):
+    """fast separable boolean dilation by radius r (PIL MaxFilter is O(k^2) and too slow at r~40)"""
+    a = b.copy()
+    for s in range(1, r + 1):
+        a[:, s:] |= b[:, :-s]; a[:, :-s] |= b[:, s:]
+    out = a.copy()
+    for s in range(1, r + 1):
+        out[s:, :] |= a[:-s, :]; out[:-s, :] |= a[s:, :]
+    return out
 
 
 def suit_mask(img, clean=CLEAN, feather=FEATHER):
@@ -86,6 +107,18 @@ def suit_mask(img, clean=CLEAN, feather=FEATHER):
     below[int(alpha.shape[0] * SPILL_Y0):, :] = True
     alpha = np.maximum(alpha, spill_ramp * (near & below))
 
+    # MID/BRIGHT INTERIOR-CLOTH RECLAIM — see constants above. Shoulder highlights (side/back)
+    # read V ~0.55-0.85; the darkness ramp only PARTIALLY covers V 0.49-0.65 (~0.3 alpha), so
+    # the grey base shows through as patches. Give FULL alpha to neutral, non-warm cloth that
+    # is adjacent to garment but NOT within a few px of the background (so the silhouette edge
+    # keeps its soft antialiased ramp). Skin is excluded by saturation + warmth, the white
+    # shirt/sweep/pocket-square by the V ceiling (they read 0.87+).
+    garm_near = _dilate(alpha > 0.5, HILIGHT_R)
+    bg_edge = _dilate(bg, 6)
+    hilite = ((V >= 0.50) & (V < HILIGHT_V) & (S < HILIGHT_S) & (warm < HILIGHT_W)
+              & ~bg & ~bg_edge & garm_near)
+    alpha = np.maximum(alpha, hilite.astype(np.float32))
+
     # INTERIOR HOLE FILL (2026-07-21). Sleeve/shoulder highlights on some renders exceed
     # the darkness ceiling and punch grey holes mid-garment (peak sleeve, visible as grey
     # blotches on navy). Fill any ENCLOSED non-garment pixel that is neutral and mid-dark;
@@ -97,7 +130,9 @@ def suit_mask(img, clean=CLEAN, feather=FEATHER):
         if inv.getpixel(pt)[0] == 255:
             ImageDraw.floodfill(inv, pt, (128, 128, 128))
     encl = np.asarray(inv)[..., 0] == 255
-    fill = encl & (a[..., 0] - a[..., 2] < 15) & (V < 0.72)
+    # enclosed neutral px are interior cloth (incl. bright shoulder-blade highlights) — the
+    # shirt/sweep/pocket-square are never enclosed and stay bright (V>=0.85), skin is warm.
+    fill = encl & (S < 0.15) & (a[..., 0] - a[..., 2] < 20) & (V < 0.85)
     alpha = np.where(fill, 1.0, alpha)
 
     # shoe cut — see constants above
