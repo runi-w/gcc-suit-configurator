@@ -692,15 +692,31 @@ function buildWarpNormal(nimg,alpha){const nc=document.createElement('canvas');n
   for(let i=0;i<W*H;i++){if(!alpha[i])continue;const nz=Math.min(1,Math.abs(g[i*4+2]/127.5-1));
     graze[i]=Math.pow(1-nz,SHEEN_POW);}
   return {dispX,dispY,alpha,graze};}
-// The FRONT-OPENING phase break. Unchanged from before Path A, on purpose: the grain spec's
+// The FRONT-OPENING phase break. SEAM_PHASE itself is unchanged on purpose: the grain spec's
 // seam research tested both a "collar-to-lapel matching is unnatural" claim and a "mismatch there
-// is normal" claim and refuted BOTH, so there is no grounded reason to move SEAM_PHASE. It stays
-// a per-PIXEL rule (right of the body's centre line, above the button) rather than becoming a
-// per-panel one, so the existing look is preserved exactly.
-function buildSeamPhase(alpha){const cen=new Float32Array(H);
+// is normal" claim and refuted BOTH, so there is no grounded reason to move the VALUE. It stays a
+// per-PIXEL rule (right of the body's centre line) rather than becoming a per-panel one.
+//
+// ⚠ WHAT CHANGED 2026-07-23 — the region it covers, not the phase. It used to stop at
+// y < SEAM_BUTTON*H, a fixed 0.46 of IMAGE height. That put a hard one-row end to the phase
+// offset straight across the chest: at y=797 on a 1733-tall canvas, every stripe on the right
+// front jumped ~4 px sideways in a single row (0.42 of a tile, and DBT6860 carries ~2 stripes per
+// tile, so the offset lands at ~0.16 of a stripe pitch). Measured: row-to-row correlation inside
+// torso-R fell to 0.06 against a 0.993 median, while torso-L stayed clean at 0.87 — right side
+// only, exactly as a centre-line rule predicts. Solid cloths read 0.91-0.93 at the same row, so
+// it was in the cloth coordinate, not the shading.
+// A real jacket's right front laps over the left for the WHOLE length of the front edge; the two
+// fronts are separate pieces of cloth from the lapel to the hem and their patterns never re-align
+// on a horizontal line across the chest. So the seam now runs to the jacket hem, taken from the
+// panel map (TROUSER starts at the hem) instead of from a fraction of image height.
+function buildSeamPhase(alpha,panel){const cen=new Float32Array(H);
   for(let y=0;y<H;y++){let s=0,c=0;for(let x=0;x<W;x++){if(alpha[y*W+x]){s+=x;c++;}}cen[y]=c?s/c:W/2;}
   const sm=new Float32Array(H),r=15;for(let y=0;y<H;y++){let s=0,c=0;for(let k=-r;k<=r;k++){const yy=y+k;if(yy>=0&&yy<H){s+=cen[yy];c++;}}sm[y]=s/c;}
-  const bY=Math.floor(SEAM_BUTTON*H),seam=new Uint8Array(W*H);for(let y=0;y<bY;y++)for(let x=0;x<W;x++)if(alpha[y*W+x]&&x>sm[y])seam[y*W+x]=1;return seam;}
+  const seam=new Uint8Array(W*H);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x;const p=panel?panel[i]:0;
+    // jacket panels only: 0 is background, 8 is TROUSER. The overlap ends where the jacket does.
+    if(alpha[i]&&x>sm[y]&&p!==0&&p!==8)seam[i]=1;}
+  return seam;}
 // PATH A — per-panel grain. The map itself is segmented at build time (builder/panels.py), where
 // the render's own pixels are available and the result can be looked at; here we only decode it.
 // Greyscale PNG, one panel id per pixel, so the red channel IS the id.
@@ -736,9 +752,10 @@ async function addCut(c){
       // it through the unwrap too. Leaving it unmapped slides the pattern within the panel.
       if(UNWRAP_AMP!==0&&c.cyl){const cr=cylFor(c.cyl,p,a[0],a[1]);
         if(cr)pax[p]=a[0]+UNWRAP_AMP*(cr[0]+cr[1]*arcLen((a[0]-cr[0])/cr[1])-a[0]);}}
+    const _panel=buildPanels(pimg);
     cutAssets[c.id]={base:b,drapeLA:dc,warp,pct,pst,pax,pay,cyl:c.cyl,
-      panel:buildPanels(pimg),
-      seam:c.openFront?buildSeamPhase(warp.alpha):new Uint8Array(W*H)};}}
+      panel:_panel,
+      seam:c.openFront?buildSeamPhase(warp.alpha,_panel):new Uint8Array(W*H)};}}
 // LAZY BACK. 5 of the 10 cut-views are backs and most visitors never leave the front,
 // so the Shopify build ships them as a second bundle that is fetched on the first Side/Back
 // click. The self-contained local build has all 15 in CUTS and GCC_MORE_URL unset, so this is a

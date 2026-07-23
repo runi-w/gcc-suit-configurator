@@ -1,0 +1,79 @@
+LOCKED — identical in every image, never reinterpret:
+
+MODEL
+- The same man throughout: mid-30s, athletic-slim build, approximately 183 cm tall.
+- Short dark-brown hair, neatly cut, combed to one side, same hairline.
+- Clean-shaven. Same face, neutral expression, calm, looking straight ahead.
+- Fair-to-medium skin tone. Hands relaxed and slightly open, thumbs forward.
+
+POSE
+- Standing upright and square, weight even on both feet.
+- Feet together, flat on the floor, toes pointing forward.
+- Arms hanging straight down at his sides, not touching the jacket.
+- Shoulders level and relaxed.
+
+GARMENT — this is a fit and drape reference, not a colour reference
+- A plain MID-GREY suit, matte wool, no pattern, no sheen, completely neutral grey
+  with no blue, brown or green cast.
+- Evenly lit so the cloth holds detail everywhere: no crushed black shadows in the
+  folds, no blown-out white highlights. Soft, readable shading throughout.
+- Modern tailored fit, natural shoulder, clean drape, light break over the shoe.
+
+LAPEL AND COLLAR — draw this construction explicitly and identically on both sides
+- Notch lapel. The collar and the lapel are two separate pieces of cloth joined by a
+  visible seam, and that seam is a real, drawn line on BOTH the left and the right.
+- At the top of each lapel there is a NOTCH: a clean V-shaped gap cut between the
+  end of the collar and the top of the lapel. The notch is open, angular and crisp.
+- Both notches must be present, the same size, at the same height, mirrored across
+  the centre of the chest. Neither side is obscured, softened, faded into shadow, or
+  left out. If one side is harder to light, still draw it fully.
+- The lapel roll line runs from the notch down to the top button on each side.
+- Show the collar's outer edge and the lapel's outer edge as distinct crisp edges.
+
+SYMMETRY — this is a requirement, not a preference
+- The garment is symmetric about the centre line of the body. Left and right lapels,
+  shoulders, sleeves and pockets are the same size, shape and brightness.
+- The ONLY intentional asymmetry is the jacket's front overlap: the wearer's left
+  front laps over the wearer's right, which is normal for a man's jacket.
+- Do not make one half of the image brighter than the other.
+
+WARDROBE
+- White cotton shirt, point collar, worn open at the neck with NO NECKTIE.
+- Shirt cuffs showing approximately 1 cm below the jacket sleeve on both sides.
+- White linen pocket square, straight "TV" fold, showing about 1 cm, with a visible
+  soft fold and its own faint shading — not a flat white rectangle.
+- BLACK leather derby shoes, plain toe, matching pair, lightly polished.
+- No belt visible, no watch, no jewellery, no glasses, no hat, no bag.
+
+CAMERA AND FRAME
+- Full length, straight on, lens at chest height.
+- Long lens: no perspective distortion, no converging verticals, no wide-angle stretch.
+- Portrait frame, 3:4 aspect ratio, as high resolution as possible.
+- The figure fills 90% of the frame height, head to sole, centred horizontally,
+  with an even margin of background above the head and below the shoes.
+
+LIGHT AND BACKGROUND — the lighting setup, described physically
+- One very large frontal softbox directly behind and above the camera, plus two equal
+  fill sources placed symmetrically at the left and right, at the SAME distance and
+  the SAME power as each other.
+- There is no key light to one side. Neither the left nor the right of the figure is
+  brighter than the other. No rim light, no kicker, no hair light from one side.
+- No hard shadows on the garment. A soft contact shadow on the floor directly beneath
+  the shoes, spreading evenly to both sides.
+- Seamless near-white studio sweep, flat and even, no vignette, no gradient,
+  no visible horizon line.
+
+EXPOSURE — hold detail at both ends
+- Expose for the mid-grey suit. Keep highlight headroom: the white shirt and the
+  pocket square must stay slightly BELOW pure white and keep visible cloth texture
+  and fold shading. Nothing in the frame is clipped to pure white.
+- Keep shadow detail in the darkest folds of the suit and in the black shoes.
+
+OUTPUT
+- Photographic, sharp, high detail. No text, no watermark, no logo, no props,
+  no additional people, no reflections, no border.
+
+Generate a full-length studio photograph of this man wearing a single-breasted
+TWO-BUTTON suit jacket with a NOTCH lapel of standard width, a welt chest pocket
+holding the pocket square, straight flap lower pockets, and matching flat-front
+trousers. Front view, facing the camera.

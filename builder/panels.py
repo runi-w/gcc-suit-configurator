@@ -182,13 +182,28 @@ def _corridor(lm):
     return f * lm["hw"]
 
 
-def _sleeves(b, lm, panel):
+SLEEVE_MIN_CM = 2.5   # narrowest run below the hem that may be called an arm — see _sleeves
+
+
+def _sleeves(b, lm, panel, px_per_cm):
     """Mark sleeve pixels.
 
     Above the hem the arm touches the body, so the armhole is placed geometrically (the corridor).
     Below the hem the arms are separated from the trousers by background, so the row's RUN
     structure gives it exactly: >=3 runs means the outermost two are arms. Below the wrist the
     runs drop to the two trouser legs and this stops firing on its own.
+
+    ⚠ MINIMUM RUN WIDTH (2026-07-23). That last sentence was the intent and it was NOT what
+    happened, because _runs() counts a 2 px mask speck as a run. A speck beside the hip made a
+    third run, the loop fired hundreds of rows below the wrist, and the OUTERMOST run — a whole
+    trouser leg, 184 px wide — was repainted SLEEVE. On front_2button_notch, 37 rows below the
+    hem had >=3 runs and EVERY ONE of them was triggered by a run under 25 px; not one was a real
+    arm. Across the 10 shipping cut-views that mislabelled 27,403 px.
+    It was very visible: a sleeve carries both a -5 deg grain rotation AND a different cylinder,
+    so each bad row shifted the pattern sideways about 4 px, printing the ruled horizontal breaks
+    across the thighs and the row of orphan stripe-dashes below the crotch. Requiring a real
+    garment width (2.5 cm — a wrist is ~5 cm, the specks were 2-17 px) restores the documented
+    behaviour: below the wrist there are two leg runs, so the loop stops on its own.
     """
     H, W = b.shape
     corr = _corridor(lm)
@@ -199,8 +214,9 @@ def _sleeves(b, lm, panel):
     panel[geo & (xx < c)] = SLEEVE_L
     panel[geo & (xx >= c)] = SLEEVE_R
 
+    minpx = max(4, int(round(SLEEVE_MIN_CM * px_per_cm)))
     for y in range(lm["hem_y"], lm["bot_y"] + 1):
-        rr = _runs(b[y])
+        rr = _runs_row(b[y], minpx)
         if len(rr) < 3:
             continue
         mids = [(x0 + x1) / 2.0 for x0, x1 in rr]
@@ -380,7 +396,7 @@ def segment(render, mask_L, view, px_per_cm):
     # the sleeve's own grain is still 0 pending the spec's verify-first step, leaving it as torso
     # costs nothing today and is honest about what has actually been segmented.
     if view != "side":
-        _sleeves(b, lm, panel)
+        _sleeves(b, lm, panel, px_per_cm)
     face = facing(render, b, lm)
     if view == "front":
         _lapels(render, b, lm, panel, px_per_cm)
