@@ -73,7 +73,11 @@ def analyse(path):
         ok("figure found", False, "no figure detected")
         return img, out
     frac = (rows[-1] - rows[0]) / h
-    ctr = ((cols[0] + cols[-1]) / 2) / w
+    # centre from rows ABOVE the shoe/shadow band — a long floor shadow fooled this into
+    # passing an off-centre figure (2026-07-23)
+    body = fg[: rows[0] + int(0.86 * (rows[-1] - rows[0])), :]
+    bc = np.where(body.sum(0) > 3)[0]
+    ctr = (((bc[0] + bc[-1]) / 2) / w) if len(bc) > 10 else ((cols[0] + cols[-1]) / 2) / w
     ok("figure height", abs(frac - FIGURE_FRAC) <= FIGURE_TOL,
        f"{frac:.3f} (target {FIGURE_FRAC} +/- {FIGURE_TOL})")
     ok("figure centred", abs(ctr - 0.5) <= CENTRE_TOL, f"centre at {ctr:.3f}")

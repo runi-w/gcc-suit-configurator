@@ -69,6 +69,15 @@ def normalise(img):
         fh = rows[-1] - rows[0]
         newH = int(round(fh / FIGURE_FRAC))
         newW = int(round(newH * ASPECT))
+        # CENTRE ON THE FIGURE, NOT THE FIGURE PLUS ITS SHADOW (2026-07-23). The v6 hero casts a
+        # long soft contact shadow leftward along the floor; it passes FIG_THRESH, stretched the
+        # measured span 300 px left, and this centring shifted the MAN ~150 px right of centre —
+        # visibly off-centre on every stage. Height keeps the full extent (the sole must count);
+        # the horizontal centre is measured strictly above the shoe/shadow band.
+        body = fg[: rows[0] + int(0.86 * fh), :]
+        bcols = np.where(body.sum(0) > 3)[0]
+        if len(bcols) > 10:
+            cols = bcols
         cx = (cols[0] + cols[-1]) // 2
         top = int(rows[0] - (newH - fh) / 2)
         left = int(cx - newW / 2)

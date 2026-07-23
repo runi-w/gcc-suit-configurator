@@ -577,7 +577,12 @@ TORSO_R_FRAC  = 0.70   # torso cylinder radius as a fraction of the FULL silhoue
                        # reads 0.644-0.730, a normal-map cylinder fit 0.69, and matching the
                        # reference jacket's physical body half-width 0.64-0.67.
 TORSO_R_FRAC_SIDE = 1.00   # in profile BOTH torso edges are true silhouettes
-SLEEVE_RHO    = 1.00   # a sleeve's outer edge IS a silhouette on 100% of rows
+SLEEVE_RHO    = 2.00   # sleeve cylinder radius multiplier. 1.0 treated the sleeve as a bare
+                       # cylinder and squeezed stripes up to 1.43x at both edges — visibly
+                       # bendier than reality. Suitsupply's striped hero (measured
+                       # 2026-07-23) shows near-uniform sleeve spacing: cloth follows the
+                       # arm loosely, it does not shrink-wrap it. At 2.0 the edge
+                       # compression caps at ~15%, matching what their photo shows.
 LEG_RHO       = 1.00
 DEG_CEN, DEG_R = 3, 3  # polynomial order for C(y) / R(y)
 TRIM_TOP, TRIM_BOT = 40, 25   # rows dropped from the FIT (still evaluated) at each panel end

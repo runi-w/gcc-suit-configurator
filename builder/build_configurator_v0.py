@@ -632,7 +632,43 @@ const PANTS_DEF=[["Pleats","Flat front, no pleat","302L"],["Front pocket","2.5cm
 const VEST_DEF=[["Front","5-button","401G"],["Collar","V, no collar","4000"],["Bottom","Regular","401J"],["Lower pockets","Welt","4300"],["Back","Matched lining + strap","4210"],["Inner lining","Regular","4714"]];
 const CUTMAP={"2-button":{"Notch":"notch","Peak":"peak","_":"notch"},"1-button":{"Peak":"one","_":"one"},
   "Double-breasted":{"Peak":"db","_":"db"},"3-piece":{"Notch":"three","_":"three"}};
-const hero=document.getElementById('hero'),hx=hero.getContext('2d');
+const hero=document.getElementById('hero'),hv=hero.getContext('2d');
+// COMPOSITE at full resolution offscreen; PRESENT at display resolution via halving steps.
+// CSS-minifying a full-res canvas shimmer-aliases fine stripes on phones (bilinear at
+// 0.3-0.6x); a mipmap chain into a devicePixelRatio-sized canvas keeps them clean.
+const heroSrc=document.createElement('canvas'),hx=heroSrc.getContext('2d');
+let _mip=document.createElement('canvas');
+function presentHero(){if(!W)return;
+  const dpr=window.devicePixelRatio||1;
+  const cw=Math.max(2,Math.round(parseFloat(hero.style.width||W)*dpr));
+  const ch=Math.max(2,Math.round(parseFloat(hero.style.height||H)*dpr));
+  if(hero.width!==cw||hero.height!==ch){hero.width=cw;hero.height=ch;}
+  // MOBILE DEFAULT = CHEST-UP. At phone width the full figure gives ~2 px per cm of cloth —
+  // a chalk stripe's lines land 2 px apart and physically cannot resolve; every fabric reads as
+  // a flat solid. Suitsupply never shows a full figure at this size for the same reason. On
+  // narrow stages the presented window is the chest (the fabric decision zone); the expand
+  // button still shows the full figure.
+  let sx=0,sy=0,sW=W,sH=H;
+  // the crop decision is made ONCE, in sizeHero, from the STAGE width — deciding here from the
+  // canvas CSS width diverged from sizeHero's aspect choice (desktop height-limited fits are
+  // narrower than 520 CSS px) and locked desktop into the crop
+  if(window._mobileCrop){sx=Math.round(W*0.20);sy=Math.round(H*0.06);sW=Math.round(W*0.60);sH=Math.round(H*0.50);}
+  let src=heroSrc,sw=W,sh=H;
+  const mx=_mip.getContext('2d');
+  // first hop extracts the source window, then halve until within 2x of target
+  {const nw=Math.min(sW,Math.max(cw,Math.round(sW*0.5))),nh=Math.round(nw*sH/sW);
+   const first=document.createElement('canvas');first.width=nw;first.height=nh;
+   const c1=first.getContext('2d');c1.imageSmoothingEnabled=true;c1.imageSmoothingQuality='high';
+   c1.drawImage(heroSrc,sx,sy,sW,sH,0,0,nw,nh);
+   src=first;sw=nw;sh=nh;}
+  while(sw*0.5>cw){const nw=Math.round(sw*0.5),nh=Math.round(sh*0.5);
+    const keep=document.createElement('canvas');keep.width=nw;keep.height=nh;
+    const c2=keep.getContext('2d');c2.imageSmoothingEnabled=true;c2.imageSmoothingQuality='high';
+    c2.drawImage(src,0,0,sw,sh,0,0,nw,nh);
+    src=keep;sw=nw;sh=nh;}
+  hv.imageSmoothingEnabled=true;hv.imageSmoothingQuality='high';
+  hv.clearRect(0,0,cw,ch);
+  hv.drawImage(src,0,0,sw,sh,0,0,cw,ch);}
 let W=0,H=0,off,ox,cutAssets={},pat={},fabPix={},microPix={};
 let state={fabric:FABRICS[0].code,style:"2-button",lapel:"Notch",chest:OPTS.chestPocket[0]?.code,lower:OPTS.lowerPocket[0]?.code,
   vent:OPTS.vent[0]?.code,button:OPTS.buttons[0]?.code,lining:OPTS.linings[0]?.code,
@@ -722,13 +758,21 @@ function buildWarpNormal(nimg,alpha){const nc=document.createElement('canvas');n
 // fronts are separate pieces of cloth from the lapel to the hem and their patterns never re-align
 // on a horizontal line across the chest. So the seam now runs to the jacket hem, taken from the
 // panel map (TROUSER starts at the hem) instead of from a fraction of image height.
-function buildSeamPhase(alpha,panel){const cen=new Float32Array(H);
-  for(let y=0;y<H;y++){let s=0,c=0;for(let x=0;x<W;x++){if(alpha[y*W+x]){s+=x;c++;}}cen[y]=c?s/c:W/2;}
-  const sm=new Float32Array(H),r=15;for(let y=0;y<H;y++){let s=0,c=0;for(let k=-r;k<=r;k++){const yy=y+k;if(yy>=0&&yy<H){s+=cen[yy];c++;}}sm[y]=s/c;}
+function buildSeamPhase(alpha,panel){
+  // The offset region is EVERYTHING RIGHT OF THE LAPEL-R INNER EDGE (the roll line — the
+  // visible front-opening edge), on exactly the rows where that lapel exists. Above the button
+  // the boundary rides the real cloth edge; at the button the region tapers to nothing, so
+  // there is no horizontal cut and no offset below the button. Measured on Suitsupply's striped
+  // hero (2026-07-23): below-button stripe phase is CONTINUOUS across the closure (1 px on a
+  // 33 px pitch), so the previous run-to-the-hem version — and the fixed-0.46H cut before it —
+  // were both wrong in opposite directions. The boundary belongs on the visible edge.
   const seam=new Uint8Array(W*H);
-  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x;const p=panel?panel[i]:0;
-    // jacket panels only: 0 is background, 8 is TROUSER. The overlap ends where the jacket does.
-    if(alpha[i]&&x>sm[y]&&p!==0&&p!==8)seam[i]=1;}
+  for(let y=0;y<H;y++){
+    let e=-1;
+    for(let x=0;x<W;x++)if(panel[y*W+x]===4){e=x;break;}
+    if(e<0)continue;
+    for(let x=e;x<W;x++){const i=y*W+x;const p=panel[i];
+      if(alpha[i]&&p!==0&&p!==8)seam[i]=1;}}
   return seam;}
 // PATH A — per-panel grain. The map itself is segmented at build time (builder/panels.py), where
 // the render's own pixels are available and the result can be looked at; here we only decode it.
@@ -736,14 +780,14 @@ function buildSeamPhase(alpha,panel){const cen=new Float32Array(H);
 function buildPanels(img){const c=document.createElement('canvas');c.width=W;c.height=H;
   const x=c.getContext('2d');x.drawImage(img,0,0,W,H);const d=x.getImageData(0,0,W,H).data;
   const p=new Uint8Array(W*H);for(let i=0;i<W*H;i++)p[i]=d[i*4];return p;}
-function sizeHero(){const st=hero.parentElement;if(!st||!W)return;const sw=Math.max(40,st.clientWidth-6),sh=Math.max(40,st.clientHeight-6),AR=W/H;
-  let h=sh,w=h*AR;if(w>sw){w=sw;h=w/AR;}hero.style.width=Math.round(w)+'px';hero.style.height=Math.round(h)+'px';}
+function sizeHero(){const st=hero.parentElement;if(!st||!W)return;const sw=Math.max(40,st.clientWidth-6),sh=Math.max(40,st.clientHeight-6);const zen=document.getElementById('app')&&document.getElementById('app').classList.contains('zen');window._mobileCrop=(sw<520&&!zen);const AR=window._mobileCrop?(W*0.60)/(H*0.50):W/H;
+  let h=sh,w=h*AR;if(w>sw){w=sw;h=w/AR;}hero.style.width=Math.round(w)+'px';hero.style.height=Math.round(h)+'px';presentHero();}
 // One cut-view's assets -> cutAssets. Split out of init() so the back views can be added
 // later from a second bundle (see ensureViews) instead of all 15 loading up front.
 async function addCut(c){
   if(cutAssets[c.id])return;
   {const [b,d,m,nimg,pimg]=await Promise.all([load(c.base),load(c.drape),load(c.mask),load(c.normal),load(c.panel)]);
-    if(!W){W=b.naturalWidth;H=b.naturalHeight;hero.width=W;hero.height=H;sizeHero();addEventListener('resize',sizeHero);
+    if(!W){W=b.naturalWidth;H=b.naturalHeight;heroSrc.width=W;heroSrc.height=H;sizeHero();addEventListener('resize',sizeHero);
       // the stage can change size without a window resize (rail clamp, Shopify container,
       // the expand toggle) — observe the element itself, not just the window.
       if(window.ResizeObserver&&hero.parentElement){try{new ResizeObserver(sizeHero).observe(hero.parentElement);}catch(e){}}
@@ -1112,7 +1156,7 @@ async function loadShopifyFabrics(){
         price2pc:Math.round(parseFloat(two.price||'575')),priceVest:vest?Math.round(parseFloat(vest.price)):200};
     }).filter(f=>f.code&&f.tile);
     return fabs.length?fabs:null;
-  }catch(e){return null;}
+  }catch(e){return null;}  presentHero();
 }
 (async function(){ if(onShopify()){const sf=await loadShopifyFabrics(); if(sf){FABRICS=sf; state.fabric=sf[0].code;}} init(); })();
 </script>
