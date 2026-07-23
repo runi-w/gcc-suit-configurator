@@ -29,7 +29,7 @@ def luminance(rgb):
     return np.asarray(rgb, dtype=np.float64).mean(-1)
 
 
-def make_drape(render_img, mask_img):
+def make_drape(render_img, mask_img, debias=None):
     rgb = np.asarray(render_img.convert("RGB"))
     lum = luminance(rgb)
     mask = np.asarray(mask_img.convert("L"))
@@ -39,7 +39,7 @@ def make_drape(render_img, mask_img):
     med = np.median(lum[m])
     if med < 1:
         raise ValueError("garment median luminance is ~0; wrong mask?")
-    lum, bias = _debias_lr(lum, m)
+    lum, bias = _debias_lr(lum, m, DEBIAS if debias is None else debias)
     L = np.clip(lum * (TARGET_MEDIAN / med), 0, 255).astype("uint8")
     out = Image.merge("LA", [Image.fromarray(L), Image.fromarray(mask.astype("uint8"))])
     return out, dict(coverage=float(m.mean()), median_before=float(med),
@@ -57,11 +57,18 @@ def make_drape(render_img, mask_img):
 # looking like a cutout. A single linear ramp fitted across the garment takes out the systematic
 # side-to-side bias and leaves every fold, crease and the broad body shading untouched.
 DEBIAS = 1.0        # 0 = off (the pre-2026-07-23 behaviour), 1 = remove the full linear term
+# ⚠ MUST BE 0 ON SIDE VIEWS. On a front or back view a left/right luminance ramp is a lighting
+# artifact. On a PROFILE it is the body itself turning away from the key — real modelling.
+# Measured on side_2button_peak: debiasing the side view costs 23% of the garment's tonal range
+# (111 -> 85 levels p5..p95) and 8% of its fold contrast, against 7-8% and ~0% on front/back.
+# The caller passes debias=0 for side views; see the loop in this file's __main__ and the
+# regeneration snippet in HANDOVER.
+DEBIAS_SIDE = 0.0
 
 
-def _debias_lr(lum, m):
+def _debias_lr(lum, m, amount=DEBIAS):
     """Divide out a linear horizontal luminance ramp fitted inside the garment mask."""
-    if DEBIAS <= 0:
+    if amount <= 0:
         return lum, 0.0
     h, w = lum.shape
     ys, xs = np.nonzero(m)
@@ -75,7 +82,7 @@ def _debias_lr(lum, m):
     xg = (np.arange(w)[None, :] - xs.mean()) / max(xs.std(), 1e-6)
     # multiplicative, so black stays black and structural creases keep their depth — the same
     # reasoning as the exposure gain above
-    corr = 1.0 / np.maximum(1.0 + DEBIAS * b * xg / mean, 0.35)
+    corr = 1.0 / np.maximum(1.0 + amount * b * xg / mean, 0.35)
     return lum * corr, b
 
 
