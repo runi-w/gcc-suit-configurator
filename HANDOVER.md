@@ -75,6 +75,48 @@ compositor now gives each tailoring panel its own cloth grain, on all 15 cut-vie
   wrong. Left as torso rather than encoding a wrong segmentation. This is the one place the shipped
   grain is knowingly incomplete (side views get lapel + collar, no sleeve lean).
 
+### ⭐⭐⭐ Session 5 (same day) — SHOPIFY EMBED BUILT (draft page, Prestige theme)
+
+`/pages/design-your-suit` exists as a **DRAFT** page (`gid://shopify/Page/117734375611`,
+templateSuffix `configurator`) on the **Prestige theme "Updated copy of Prestige New 1"**
+(`149240774843`, serves at `t/59`). **You publish it** — the connector blocks both live-theme
+writes and theme publishing, by design.
+
+- **⚠ THE LOAD-BEARING FINDING: Shopify's CDN silently RE-ENCODES anything it sniffs as an
+  image — in Files AND in theme assets, whatever the extension.** Measured on the same lossless
+  normal map: `.webp` in Files → served `image/jpeg`, 149,308 → 46,417 bytes, **max pixel diff
+  20**; renamed `.txt` with `text/plain` → *identical* transcode (it sniffs content, the
+  extension is irrelevant); as a theme asset → stored fine but **served** re-encoded too. That
+  would have quietly corrupted the normal maps and, far worse, the PANEL MAP, where a value of 3
+  becoming 4 puts the wrong grain on pixels. **Never host this project's data maps as images on
+  Shopify.** Full detail in the `gcc-shopify-cdn-asset-fidelity` memory.
+- **But `.js` is served BYTE-EXACT and gzipped**, so the answer was to keep the data-URIs exactly
+  as they are and ship them inside JS bundles. Shopify minifies the JS (strips whitespace,
+  unquotes keys) — verified that **all 150 embedded data-URI payloads stay byte-identical**,
+  because minifiers don't touch string contents.
+- **Three files, built by `GCC_SPLIT=1 python3 builder/build_configurator_v0.py` → `dist/`:**
+  - `gcc-configurator-core-v2.js` — 2.79 MB, **1.99 MB over the wire**. Compositor + CSS + markup
+    (it injects its own DOM) + the 5 FRONT cut-views. This is the initial load.
+  - `gcc-configurator-views-v1.js` — 4.13 MB, fetched on the first Side/Back click.
+  - `templates/page.configurator.liquid` — 488 bytes, `{% layout none %}` + two script tags.
+- **`{% layout none %}` is deliberate**: the configurator's CSS uses generic class names
+  (`.app`/`.main`/`.rail`/`.grid`/`.row`) that would collide both ways with a theme stylesheet,
+  and it carries its own topbar and Add-to-cart. Rendering outside the theme layout guarantees
+  the look that was verified locally. Trade-off: **no site header/nav on that page.**
+- **Verified against the REAL CDN URLs in a browser** (not just locally): minified core loads,
+  injects markup, renders; Side click lazy-loads the views bundle; pinstripe side view renders
+  with the Path A grain intact; zero console errors. Lazy load took ~12 s on this machine — most
+  of it building 10 cut-views' warp fields, not download — behind a progress indicator.
+- **Upload mechanics that work** (see also §7): `stagedUploadsCreate` → **`curl -F` from local
+  disk** → `fileCreate`. Bytes must NEVER go through a tool-call payload — a hand-transcribed
+  base64 got truncated 6,616 → 3,519 bytes today, the same failure as the handover's existing
+  "retype→403" gotcha. `themeFilesUpsert` accepts a `URL` body for **assets** (verified
+  byte-exact) but **not for `templates/*.liquid`** — that silently no-ops, hence the tiny
+  hand-typeable template.
+- **Left behind, needs manual deletion in the admin** (`themeFilesDelete` is blocked): two
+  39-byte stubs in the Prestige theme, `assets/gccfg-test-panel.png` and
+  `assets/gccfg-test-serve.webp`.
+
 ### ⭐⭐ Session 5 (same day) — deliverable 10.97 → 6.60 MB, from the normal maps' RESOLUTION
 
 The normal maps were **64% of the whole file** (482 KB x 15 = 7.1 MB). They are now emitted at
@@ -430,10 +472,11 @@ python3 builder/build_configurator_v0.py                     # 5. build
    there explains why rendered ≈ table + 4° on the lapel. Only the two Elite pinstripes
    (DBT6860, DBU081A) have really been judged — worth a look on a check/windowpane, where the
    prediction is that both grid axes rotate together with no extra code.
-2. **Shopify embed, and finish the size job with it** — 6.60 MB after the normal-map halving
-   (§2), still heavy for a page. Compression is done; the remaining lever is that 10 of the 15
-   cut-views are side/back, so host those on the Shopify CDN and fetch on demand → ~2.2 MB
-   initial. Then `themeFilesUpsert` onto theme 149240774843 → `pageCreate`.
+2. **Publish the embed.** Built and verified (§2) but DRAFT. To go live: publish the Prestige
+   theme `149240774843`, then set the page `gid://shopify/Page/117734375611` to published. Both
+   steps are blocked for the connector, so they are yours. Preview first via the theme preview —
+   the page is a draft, so you need to be signed in as staff to see it. Decide too whether
+   `{% layout none %}` (no site header/nav on that page) is what you want.
 3. **Difficulty-routing bake fallback (`plan/RESEARCH_FINDINGS.md`)** — only if Path A quality is
    judged insufficient: AI-bake the ~27–29 bold directional fabrics onto the STANDING render (run
    the validation gate first). Path A is preferred (one-time, all-fabrics, live) and is now built.

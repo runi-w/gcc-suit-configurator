@@ -65,3 +65,6 @@ _orig_before_sym/
 __pycache__/
 *.pyc
 .venv/
+
+# split build output for the Shopify embed (regenerate with GCC_SPLIT=1)
+dist/

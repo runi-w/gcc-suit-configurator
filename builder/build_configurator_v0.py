@@ -354,6 +354,11 @@ HTML = r"""<meta charset="utf-8"><meta name="viewport" content="width=device-wid
  .viewbar button:hover:not(:disabled){color:var(--ink)}
  .viewbar button.on{color:var(--ink);font-weight:500}
  .viewbar button.on::after{content:"";position:absolute;left:20px;right:20px;bottom:9px;height:2px;background:var(--ink);border-radius:2px}
+ /* while the lazily-loaded side/back bundle is in flight (Shopify build only) */
+ .viewbar button.busy{color:var(--soft);cursor:progress}
+ .viewbar button.busy::after{content:"";position:absolute;left:20px;right:20px;bottom:9px;height:2px;border-radius:2px;
+   background:linear-gradient(90deg,transparent,var(--ink),transparent);background-size:200% 100%;animation:gccload 1s linear infinite}
+ @keyframes gccload{0%{background-position:100% 0}100%{background-position:-100% 0}}
  .viewbar button:disabled{color:var(--faint);cursor:not-allowed}
  .viewbar .exp{padding:0 15px;border-right:1px solid var(--line);display:flex;align-items:center}
  .viewbar .exp svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
@@ -588,8 +593,11 @@ function buildPanels(img){const c=document.createElement('canvas');c.width=W;c.h
   const p=new Uint8Array(W*H);for(let i=0;i<W*H;i++)p[i]=d[i*4];return p;}
 function sizeHero(){const st=hero.parentElement;if(!st||!W)return;const sw=Math.max(40,st.clientWidth-6),sh=Math.max(40,st.clientHeight-6),AR=W/H;
   let h=sh,w=h*AR;if(w>sw){w=sw;h=w/AR;}hero.style.width=Math.round(w)+'px';hero.style.height=Math.round(h)+'px';}
-async function init(){
-  for(const c of CUTS){const [b,d,m,nimg,pimg]=await Promise.all([load(c.base),load(c.drape),load(c.mask),load(c.normal),load(c.panel)]);
+// One cut-view's assets -> cutAssets. Split out of init() so the side/back views can be added
+// later from a second bundle (see ensureViews) instead of all 15 loading up front.
+async function addCut(c){
+  if(cutAssets[c.id])return;
+  {const [b,d,m,nimg,pimg]=await Promise.all([load(c.base),load(c.drape),load(c.mask),load(c.normal),load(c.panel)]);
     if(!W){W=b.naturalWidth;H=b.naturalHeight;hero.width=W;hero.height=H;sizeHero();addEventListener('resize',sizeHero);
       // the stage can change size without a window resize (rail clamp, Shopify container,
       // the expand toggle) — observe the element itself, not just the window.
@@ -610,7 +618,23 @@ async function init(){
       const a=(c.anchor&&c.anchor[p])||[0,0];pax[p]=a[0];pay[p]=a[1];}
     cutAssets[c.id]={base:b,drapeLA:dc,warp,pct,pst,pax,pay,
       panel:buildPanels(pimg),
-      seam:c.openFront?buildSeamPhase(warp.alpha):new Uint8Array(W*H)};}
+      seam:c.openFront?buildSeamPhase(warp.alpha):new Uint8Array(W*H)};}}
+// LAZY SIDE/BACK. 10 of the 15 cut-views are side/back and most visitors never leave the front,
+// so the Shopify build ships them as a second bundle that is fetched on the first Side/Back
+// click. The self-contained local build has all 15 in CUTS and GCC_MORE_URL unset, so this is a
+// no-op there and the two builds stay one code path.
+let morePromise=null;
+function ensureViews(){
+  if(morePromise)return morePromise;
+  if(!window.GCC_MORE_URL)return Promise.resolve();
+  morePromise=new Promise((res,rej)=>{const s=document.createElement('script');
+      s.src=window.GCC_MORE_URL;s.onload=res;s.onerror=()=>rej(new Error('side/back bundle failed'));
+      document.head.appendChild(s);})
+    .then(async()=>{for(const c of (window.GCC_MORE_CUTS||[]))await addCut(c);})
+    .catch(e=>{morePromise=null;throw e;});   // let a failed load be retried on the next click
+  return morePromise;}
+async function init(){
+  for(const c of CUTS)await addCut(c);
   await Promise.all(FABRICS.map(async f=>{const t=await load(f.tile);pat[f.code]=ox.createPattern(t,'repeat');
     if(f.micro){const mi=await load(f.micro);const mc=document.createElement('canvas');mc.width=mi.naturalWidth;mc.height=mi.naturalHeight;
       const mxx=mc.getContext('2d');mxx.drawImage(mi,0,0);microPix[f.code]=mxx.getImageData(0,0,mc.width,mc.height).data;}
@@ -790,7 +814,12 @@ function buildDock(){renderTabs();renderPanel();
   const ex=document.getElementById('expand');
   if(ex)ex.onclick=()=>{document.getElementById('app').classList.toggle('zen');sizeHero();};
   [['viewFront','front'],['viewSide','side'],['viewBack','back']].forEach(([id,v])=>{
-    const b=document.getElementById(id);if(b)b.onclick=()=>{if(b.disabled)return;curView=v;render();};});}
+    const b=document.getElementById(id);if(b)b.onclick=async()=>{if(b.disabled)return;
+      if(v!=='front'&&window.GCC_MORE_URL&&!cutAssets[resolveCut().cut+'__'+v]){
+        b.classList.add('busy');
+        try{await ensureViews();}catch(e){b.classList.remove('busy');return;}
+        b.classList.remove('busy');}
+      curView=v;render();};});}
 function nameOf(list,code,field){const o=(list||[]).find(x=>x.code===code);return o?(o.name||o.label||o[field]||code):code;}
 // Price = the fabric's own 2-piece price (+ its vest price for 3-piece) + monogram. Per-fabric prices come from the Shopify product; demo falls back to 575/200.
 function price(){const f=FABRICS.find(x=>x.code===state.fabric)||{};const base=(f.price2pc!=null?f.price2pc:575);const vest=(f.priceVest!=null?f.priceVest:200);return base+(curStyle().pieces===3?vest:0)+(state.mono.on?25:0);}
@@ -908,7 +937,77 @@ html = (HTML.replace("__CUTVIEWS__", json.dumps(cutviews))
             # straightens them while keeping the gentle silhouette bow; only 7.4% of garment
             # px were above 12, all in those crease zones.
             .replace("__WARP_CAP__", f"{6.5 * RSCALE:.2f}"))
+
+
+def _fill(s, cuts_json):
+    """Apply every placeholder except __CUTS__, which differs between the two builds."""
+    return (s.replace("__CUTVIEWS__", json.dumps(cutviews))
+             .replace("__CUTS__", cuts_json)
+             .replace("__FABRICS__", json.dumps(fabs))
+             .replace("__OPTS__", json.dumps(OPTS))
+             .replace("__PAT_DENSITY__", str(OVERSAMPLE))
+             .replace("__FOOT__", f"{FOOTPRINT:.2f}")
+             .replace("__SIL_WRAP__", f"{SIL_WRAP:.2f}")
+             .replace("__PANEL_ANG__", json.dumps(PANEL_ANGLES))
+             .replace("__STAGE__", "#%02x%02x%02x" % STAGE_RGB)
+             .replace("__WARP_AMP__", f"{6 * RSCALE:.2f}")
+             .replace("__NSMOOTH__", str(max(1, round(12 * RSCALE))))
+             .replace("__WARP_CAP__", f"{6.5 * RSCALE:.2f}"))
+
+
 open(OUT, "w").write(html)
 print(f"canvas {W}x{H} (full frame {W}x{H_FULL}, cropped to top {CROP_FRAC:.0%}); "
       f"px-scale constants x{RSCALE:.3f}; {os.path.getsize(OUT)/1048576:.2f} MB")
 print("wrote", OUT, f"({os.path.getsize(OUT)/1024/1024:.2f} MB)")
+
+# ---------------------------------------------------------------- SPLIT BUILD (Shopify embed)
+# Same code, three files instead of one. Shopify's CDN re-encodes anything it sniffs as an image
+# — in Files AND in theme assets, whatever the extension (measured 2026-07-23; a lossless normal
+# map came back as a 46 KB JPEG with 20 levels of pixel error). It serves .js byte-exact and
+# gzipped. So the data-URIs stay exactly as they are and ride inside a JS bundle.
+#   core.js  = the compositor + the 5 FRONT cut-views  (the initial load)
+#   views.js = the 10 side/back cut-views              (fetched on the first Side/Back click)
+#   .liquid  = the markup + CSS, as a page template
+if os.environ.get("GCC_SPLIT") == "1":
+    DIST = f"{HM}/dist"
+    os.makedirs(DIST, exist_ok=True)
+    front = [c for c in cuts if c["id"].endswith("__front")]
+    rest = [c for c in cuts if not c["id"].endswith("__front")]
+
+    i_style, i_script = HTML.index("<style>"), HTML.index("<script>")
+    i_end = HTML.rindex("</script>")
+    markup = _fill(HTML[i_style:i_script], "[]")                       # <style>..</style> + body
+    script = _fill(HTML[i_script + len("<script>"):i_end], json.dumps(front))
+
+    core = f"{DIST}/gcc-configurator-core.js"
+    views = f"{DIST}/gcc-configurator-views.js"
+    liquid = f"{DIST}/page.configurator.liquid"
+
+    # The CSS and markup go INSIDE core.js and are injected before the compositor runs, so the
+    # Liquid template stays a ~10-line shell. That is deliberate: themeFilesUpsert will not take
+    # a URL body for templates/*.liquid (only TEXT), and the only way to send TEXT is to retype
+    # it into a tool call — which is exactly how a 6.6 KB asset got truncated to 3.5 KB earlier
+    # today. A file small enough to type by hand safely is worth the indirection.
+    css, body = markup.split("</style>", 1)
+    css = css.replace("<style>", "", 1)
+    boot = ("(function(){var s=document.createElement('style');s.textContent=" + json.dumps(css) +
+            ";document.head.appendChild(s);"
+            "var w=document.createElement('div');w.innerHTML=" + json.dumps(body.strip()) +
+            ";while(w.firstChild)document.body.appendChild(w.firstChild);})();\n")
+    open(core, "w").write(boot + script)
+    open(views, "w").write("window.GCC_MORE_CUTS=" + json.dumps(rest) + ";\n")
+    # layout none: the configurator carries its own chrome and its CSS uses generic class names
+    # (.app/.main/.rail/.grid/.row) that would collide both ways with the theme's stylesheet.
+    # Rendering without the theme layout guarantees the look that was verified locally.
+    open(liquid, "w").write(
+        "{% layout none %}<!doctype html>\n<html lang=\"en\"><head>\n"
+        "<meta charset=\"utf-8\">\n"
+        "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n"
+        "<title>Design your suit | Gage Court Clothiers</title>\n"
+        "</head><body>\n"
+        "<script>window.GCC_MORE_URL=\"__VIEWS_URL__\";</script>\n"
+        "<script src=\"__CORE_URL__\"></script>\n"
+        "</body></html>\n")
+    for p in (core, views, liquid):
+        print(f"  {os.path.basename(p):32s} {os.path.getsize(p)/1048576:6.2f} MB")
+    print(f"split build in {DIST}/ — {len(front)} front cut-views in core, {len(rest)} lazy")
