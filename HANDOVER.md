@@ -18,358 +18,97 @@ sales/month**. That volume is why real-time 3D and per-fabric photography are ou
 ---
 
 ## 2. Current state
+_Rewritten 2026-07-23. This section describes what IS true, not what changed when. Five sessions
+of append-only notes had accumulated real contradictions — several constants were documented at
+values they no longer hold, and one long-standing "known residual" turned out not to reproduce.
+A compressed history is at the end of this section._
 
-### ⭐⭐⭐ Session 5 (2026-07-23) — PATH A IMPLEMENTED AND SHIPPING. Per-panel grain is live.
+### The compositor, end to end
 
-`plan/PATH_A_GRAIN_SPEC.md`'s implementation sequencing is **done, all five steps**. The
-compositor now gives each tailoring panel its own cloth grain, on all 15 cut-views.
+One fixed AI render per cut-view (15 = 5 cuts × front/side/back), plus a coverage mask, a drape
+map and a Marigold normal map. At runtime the chosen cloth is tiled into the mask and shaded:
 
-- **New `builder/panels.py`** — the segmenter. One flat render + its coverage mask →
-  a 9-value panel map (torso-L/R, lapel-L/R, sleeve-L/R, collar, trouser). It also owns
-  **`PANEL_ANGLES`, the single place the grain is tuned**, with the provenance of every number
-  in a comment. Run it directly (`python3 builder/panels.py`) to print landmarks and write a
-  15-view QA contact sheet — the segmentation was built by looking at that sheet, per the
-  playbook's "always look" rule, and it caught three things a metric would not have (lapel bands
-  crossing into an X below the button; a skin-keyed collar detector selecting a box with no
-  garment in it; side-view "sleeves" landing on the front and back edges of the profile).
-- **Segmentation is BUILD-TIME, not runtime JS.** The panel map is *geometry*, and geometry in
-  this codebase is already a per-cut-view build asset (mask/drape/normal) — the same split
-  `plan/SS_RENDER_ARCHITECTURE_SPEC.md` S3 proved Suitsupply makes. Rides along as a greyscale
-  PNG: **+130 KB on the deliverable, ~1.2%.** Measured against the
-  alternatives: packing it into the mask PNG's spare channels would have cost +201 KB.
-- **Mechanism = rigid rotation of the sampling coordinate about a per-panel anchor**
-  (`u=(x·cosθ+y·sinθ)·dens, v=(−x·sinθ+y·cosθ)·dens`), exactly as the spec called for. The anchor
-  matters: the pattern is unmoved *at* the anchor and turns around it, so it doubles as the
-  panel's phase reference — the sleeve's sits on the armhole at chest height, which is the one
-  line the spec says a sleeve must match the body on.
-- **NO TORSO REGRESSION, proven not asserted.** Angle 0 takes the original expression verbatim,
-  so it is bit-identical by construction. Verified anyway by rendering every cut-view twice (with
-  the table live, and with it zeroed) and pixel-diffing: across 4 cut-views, **0 pixels changed
-  outside the rotated panels.** `audit/panel_angles.py` agrees — torso −0.7°/+0.3° front,
-  +1.1°/−1.1° back, unmoved.
-- **Shipped angles (user-chosen by eye from a rendered 0/11/16/22/28 sweep): lapel ±16, sleeve
-  ±5, collar 87.** Measured on the finished composite: lapel-L **−17.3°** (sd 6.8), collar
-  **+86.8°** (sd 7.7, against −0.8° before), sleeves now mirrored where they were not.
-- **⚠ CALIBRATION — the table value is not the angle you see.** The rotation composes with the
-  existing normal-driven warp, which already leans the lapel ~4° on its own (lapel-L measures
-  −7.5° with the table zeroed). **Rendered ≈ table + 4° on the lapel**; the collar has no such
-  offset. Re-measure with `audit/panel_angles.py`, don't trust the table, if the warp changes.
-- **The spec's open question 1 is ANSWERED: the sleeve needs its own rotation.** The spec said to
-  verify the existing normal-driven warp against the ±5° target before writing new code, since
-  Marigold's normal map is a real capture of the sleeve's geometry. Measured: it delivers
-  **0.0° to −2.5° and is not mirrored L/R** — so it does not get there on its own. Explicit
-  rotation added.
-- **Seam rules, all four:** front opening — `SEAM_PHASE` deliberately untouched (R1 tested and
-  refuted the claims on *both* sides of that question, so there is no grounded reason to move it);
-  it stays a per-PIXEL rule so today's look is preserved exactly, and the JS function that
-  computes it is renamed `buildSeamPhase` while `buildPanels` now means the panel map. Center-back
-  collar-continuity — **already satisfied, no code needed**: `openFront` is false on back views,
-  so there is no phase break at center back and the pattern runs continuously through the collar,
-  which is what the rule asks for (panels "one repeat apart" is visually continuous for a periodic
-  tile). Sleeve one-line match — the anchor, above. Pockets — inherit their panel, as specified.
-- **Checks confirmed free, as predicted.** A coordinate rotation carries whatever is in the tile,
-  so a check's two axes turn together with no check-specific code. No separate 2D path was needed.
-- **Deliberately NOT segmented: the side view's sleeve.** Seen in profile the arm hangs in front
-  of the torso in depth, so it occupies the middle of the silhouette, not its edges — the corridor
-  rule that is right on front and back marks the front and back edges instead, which is simply
-  wrong. Left as torso rather than encoding a wrong segmentation. This is the one place the shipped
-  grain is knowingly incomplete (side views get lapel + collar, no sleeve lean).
+1. **Panel segmentation** (`builder/panels.py`, build time) → a 9-value panel map per cut-view:
+   torso-L/R, lapel-L/R, sleeve-L/R, collar, trouser. Emitted as a greyscale PNG.
+2. **Arc-length unwrap** — the cloth coordinate advances by arc length along a per-panel cylinder,
+   so the pattern compresses toward each panel's silhouette exactly as it does in real suit
+   photography. `dU/dx = 1/max(sqrt(1-((x-C)/R)²), NZ_FLOOR)`.
+3. **Per-panel grain rotation** (Path A) — lapel ±16°, sleeve ±5°, collar 87°, torso/trouser 0.
+   Applied AFTER the unwrap, about an anchor mapped through the same unwrap.
+4. **Seam phase** — the front-opening break (`SEAM_PHASE`), unchanged and research-locked.
+5. **Sampling** — SS=3 supersample with an anisotropic footprint (`fpx = fp·dU/dx`).
+6. **Drape overlay** then an **additive sheen** pass. All of the garment's three-dimensionality
+   lives in these two, not in the pattern's geometry.
 
-### ⭐⭐⭐ Session 5 (same day) — SHOPIFY EMBED BUILT (draft page, Prestige theme)
+**There is no normal-driven pattern warp.** It was removed: derived from a lighting-correlated
+normal, it expanded where foreshortening must compress on 86.6% of torso pixels, was worse than a
+flat pattern on 24 of 24 panel-cases against a cylinder ideal, and dilated stripe spacing +9.6%,
+silently breaking the true-scale calibration. `WARP_AMP_MULT = 0.0` and it stays there.
 
-`/pages/design-your-suit` exists as a **DRAFT** page (`gid://shopify/Page/117734375611`,
-templateSuffix `configurator`) on the **Prestige theme "Updated copy of Prestige New 1"**
-(`149240774843`, serves at `t/59`). **You publish it** — the connector blocks both live-theme
-writes and theme publishing, by design.
+### What the renders and maps are
 
-- **⚠ THE LOAD-BEARING FINDING: Shopify's CDN silently RE-ENCODES anything it sniffs as an
-  image — in Files AND in theme assets, whatever the extension.** Measured on the same lossless
-  normal map: `.webp` in Files → served `image/jpeg`, 149,308 → 46,417 bytes, **max pixel diff
-  20**; renamed `.txt` with `text/plain` → *identical* transcode (it sniffs content, the
-  extension is irrelevant); as a theme asset → stored fine but **served** re-encoded too. That
-  would have quietly corrupted the normal maps and, far worse, the PANEL MAP, where a value of 3
-  becoming 4 puts the wrong grain on pixels. **Never host this project's data maps as images on
-  Shopify.** Full detail in the `gcc-shopify-cdn-asset-fidelity` memory.
-- **But `.js` is served BYTE-EXACT and gzipped**, so the answer was to keep the data-URIs exactly
-  as they are and ship them inside JS bundles. Shopify minifies the JS (strips whitespace,
-  unquotes keys) — verified that **all 150 embedded data-URI payloads stay byte-identical**,
-  because minifiers don't touch string contents.
-- **Three files, built by `GCC_SPLIT=1 python3 builder/build_configurator_v0.py` → `dist/`:**
-  - `gcc-configurator-core-v2.js` — 2.79 MB, **1.99 MB over the wire**. Compositor + CSS + markup
-    (it injects its own DOM) + the 5 FRONT cut-views. This is the initial load.
-  - `gcc-configurator-views-v1.js` — 4.13 MB, fetched on the first Side/Back click.
-  - `templates/page.configurator.liquid` — 488 bytes, `{% layout none %}` + two script tags.
-- **`{% layout none %}` is deliberate**: the configurator's CSS uses generic class names
-  (`.app`/`.main`/`.rail`/`.grid`/`.row`) that would collide both ways with a theme stylesheet,
-  and it carries its own topbar and Add-to-cart. Rendering outside the theme layout guarantees
-  the look that was verified locally. Trade-off: **no site header/nav on that page.**
-- **Verified against the REAL CDN URLs in a browser** (not just locally): minified core loads,
-  injects markup, renders; Side click lazy-loads the views bundle; pinstripe side view renders
-  with the Path A grain intact; zero console errors. Lazy load took ~12 s on this machine — most
-  of it building 10 cut-views' warp fields, not download — behind a progress indicator.
-- **Upload mechanics that work** (see also §7): `stagedUploadsCreate` → **`curl -F` from local
-  disk** → `fileCreate`. Bytes must NEVER go through a tool-call payload — a hand-transcribed
-  base64 got truncated 6,616 → 3,519 bytes today, the same failure as the handover's existing
-  "retype→403" gotcha. `themeFilesUpsert` accepts a `URL` body for **assets** (verified
-  byte-exact) but **not for `templates/*.liquid`** — that silently no-ops, hence the tiny
-  hand-typeable template.
-- **Left behind, needs manual deletion in the admin** (`themeFilesDelete` is blocked): two
-  39-byte stubs in the Prestige theme, `assets/gccfg-test-panel.png` and
-  `assets/gccfg-test-serve.webp`.
+- **Renders** — the 5 FRONT renders are **retouched** (`builder/fix_gorge.py`). The generator
+  invented a key light from screen-right and never drew the lapel gorge on that side, in 10/10
+  generations ever including `renders/_superseded/`. The left gorge's structure is mirrored onto
+  the right (high-frequency only, so the right keeps its own lighting), registered on each
+  lapel's inner edge because the fronts overlap and the gorges are NOT symmetric about the neck.
+  Pristine originals are kept as `renders/*.orig.png`.
+- **Masks** (`builder/make_mask.py`) — the shoulder under-coverage is fixed (missed px −42%,
+  side-view run width 37-52 px → 10-12). ⚠ Still fills over **buttons and pocket welts** as if
+  they were pinholes, so cloth is painted on top of them — §6 item 1.
+- **Drape maps** (`builder/make_drape.py`) — carry a left/right lighting debias, scoped to the
+  **jacket only** and to **front/back only**. Both scopes are load-bearing: a whole-garment fit
+  injected the jacket's bias into clean trousers, and debiasing a *profile* removes the body
+  turning away from the light (23% of the side view's tonal range).
+- **Normal maps** — half linear resolution, still lossless WebP. They feed only the sheen's
+  grazing term now that the pattern warp is gone.
 
-### ⭐⭐ Session 5 (same day) — deliverable 10.97 → 6.60 MB, from the normal maps' RESOLUTION
+### Measured against Suitsupply
 
-The normal maps were **64% of the whole file** (482 KB x 15 = 7.1 MB). They are now emitted at
-**half linear resolution**, which cuts the deliverable by 40% with a measured, invisible cost.
-
-- **Codec fidelity and RESOLUTION are different questions.** The playbook's "normal maps must
-  stay LOSSLESS" rule came from measuring lossy codecs at 18-20° of angular vector error — that
-  rule is untouched, they are still lossless WebP. But the compositor consumes this map in only
-  two ways, and both discard high frequencies: `dispX/dispY`, which is **box-blurred at NSMOOTH
-  (22 px at W=1300)** and capped at `WARP_CAP`; and `graze`, a broad grazing-angle sheen term.
-- **Measured at half scale** on front/side/back: displacement error **p95 0.05–0.12 px, MAX
-  0.30 px against a 12 px warp cap**; graze error p95 <0.01. Sub-pixel.
-- **Verified on the actual composite**, all 15 cut-views: mean difference **0.043 levels out of
-  255**, p99 = 1 level, only 0.16% of pixels differ by more than 2 levels. Visually identical at
-  high zoom on a pinstripe chest, which is where a sub-pixel warp shift would show first.
-- **No JS change was needed** — `buildWarpNormal` already does `drawImage(nimg,0,0,W,H)`, so the
-  browser upsamples whatever it is handed.
-- Quarter scale was also measured (max 0.75 px, ~5.4 MB total) and NOT taken: 0.5 is comfortably
-  sub-pixel and the extra ~0.9 MB is not worth doubling the error. `NORMAL_SCALE` is a named
-  constant in the builder if that trade ever looks different.
-- **Remaining breakdown at 6.60 MB:** normal 2.5, base (JPEG q82) 1.74, drape (JPEG q90) 1.16,
-  mask 0.49, panel 0.12, fabrics 0.18, options 0.16. The next real lever is no longer compression
-  — it is that **10 of the 15 cut-views are side/back**, so externally hosting those would leave a
-  front-only initial load of ~2.2 MB. That is architectural and pairs with the Shopify embed.
-
-### ⭐⭐ Session 5 (same day) — the side/back shoulder blotch FIXED, and the diagnosis was wrong twice
-
-Found while verifying Path A on a navy pinstripe: the garment masks were leaving a broad ragged
-band of the shoulder and upper arm OUTSIDE the mask, so the compositor left the grey BASE RENDER
-showing there. Invisible on the grey house cloth, glaring on any coloured one. Recorded until now
-as a "2-3px soft sliver … (natural)" minor defect; measured at **3.2–9.5% of the jacket on side
-views, runs up to 31 px** (front/back 0.8–1.7%).
-
-- **The standing diagnosis was wrong, and so was my first one.** Session 3's fix was a BRIGHT-
-  highlight reclaim, on the theory the shoulder cloth was too bright for the `V_MAX` ceiling. It
-  isn't: measured on `side_2button_notch`, the missing pixels read **V 0.29–0.61 (median 0.42) —
-  comfortably dark enough** — but **R−B +5..+13 (median +11)**, just over `BLUE_BIAS`=8. They are
-  warm-tinted cloth lit by the warm key, and **82% of them failed the old reclaim's `V >= 0.50`
-  floor**, which is why a reclaim aimed at exactly the right region never touched them.
-- **Fix: drop the V floor from that reclaim** (now `RECLAIM_*`, not `HILIGHT_*`) so it covers
-  mid-dark warm cloth as well as bright highlights. Deliberately NOT done by raising `BLUE_BIAS`,
-  which would loosen the classifier over the whole frame including where no garment is near; the
-  reclaim is gated to low-saturation pixels adjacent to *confident* garment and outside a 6 px
-  background margin. **Saturation is the real discriminator** — cloth 0.11, skin 0.24+, hair
-  0.31–0.43 (only ~1% of hair px pass, and the connected-blob step drops those).
-- **Second pass on the residue.** What survived was all *enclosed* interior holes failing only on
-  saturation (S 0.15–0.18 vs a 0.15 ceiling). Raised the ENCLOSED-hole fill's ceiling to 0.20
-  instead of loosening the edge-adjacent reclaim — enclosure is a far stronger guarantee than
-  adjacency, and **zero hair pixels are enclosed on any render** (hair opens to the background
-  above the head), so it cannot let hair in.
-- **Result, measured on all 15 cut-views:** missed px **122,420 → 71,441 (−42%)**; side views
-  **3.98/7.31/12.03/6.49/4.52% → 1.73/2.78/3.42/2.47/2.31%**; and the number that matters most,
-  **max run width on side views 37–52 px → 10–12 px** — the wide bands are gone and what remains
-  is the intended antialiased silhouette rim. **falseSkin 0 before and after; falseBackground
-  2423 → 2427** (noise). Confirmed by eye on all 15, not just by the metric.
-- **Also: `make_mask` got ~4x faster.** PIL's `MaxFilter(31)` in the skin-bounce reclaim was 8 s a
-  render, ~85% of the whole mask build. Swapped for the file's own separable `_dilate` — verified
-  **bit-identical** and ~320x faster on the real image size.
-- **Knock-ons checked, both clean.** Drape maps regenerated for all 15 (Marigold normals did NOT
-  need it); coverage moved +0.00 to +0.42 pp. Colour re-measured with `audit/calib.py`: **97% of
-  the mill scan vs the 98% on record** — unchanged within noise, so `DRAPE_TARGET_MED` was left
-  alone rather than chased for a 1.3% suggestion. Path A angles re-measured after the mask change
-  (the segmentation reads the mask): lapel −17.3°, collar +86.7°, torso unmoved — no drift.
-
-### ⭐⭐⭐ Session 4 (2026-07-22) — Path A research plan EXECUTED, grain spec delivered
-
-Ran `plan/PATH_A_RESEARCH_PLAN.md`'s R1-R4 to completion. Full result:
-**`plan/PATH_A_GRAIN_SPEC.md`** — read that before touching the compositor. Summary:
-
-- **Two mechanisms, not three.** The crux question's silhouette-width-taper option (`SIL_WRAP`)
-  is now confirmed absent from *every* reference measured this session (a flat CAD panel sweep on
-  a fresh live asset, on top of the already-known torso result) — don't resurrect it per-panel.
-- **Lapel: NEW fixed-angle rotation, ±11° from vertical**, mirrored L/R. Measured from
-  Suitsupply's photographic hero still, cross-checked against an isolated flat CAD `lapel` layer
-  pulled live off their CDN (which reads ~3x steeper, ~30° — that's their stylized configurator
-  icon, not physically representative; we target the photo-real number since our renders are
-  photographic-quality like their hero shot, not their icon).
-- **Sleeve: probably no new mechanism needed** — measured ±5°, but recommend verifying the
-  *existing* normal-driven warp against that target (once the sleeve has its own panel mask)
-  before writing a new fixed-rotation path, since Marigold's normal map is a real capture of the
-  sleeve's own geometry.
-- **Collar: NEW fixed-angle rotation, ~85-90°** (near-horizontal) — well-grounded by R1's deep
-  research: the undercollar is conventionally cut on the true bias for structural reasons
-  (3-0 vote, 4+ independent tailoring sources).
-- **Seam rules (R1):** center-back is a **collar-continuity phase match, not a mirror** — the two
-  back panels sit one repeat apart at the collar, gap varies down the back; sleeve matches the
-  body at **one prominent line at the chest/armhole junction only**, rest is free; pocket
-  jett/flap matching is a **genuine, named disagreement between bespoke houses** (no single right
-  answer — default to inheriting the panel's grain); checks/windowpane get the same seam
-  priorities as stripes, just a stricter 2D (both-axis) match requirement at whichever seams do
-  get matched.
-- **No prior art anywhere.** Surveyed Proper Cloth, Indochino, Black Lapel, Threekit, Unspun,
-  MTailor, Son of a Tailor — nobody publicly does live per-panel pattern wrap. Targets had to come
-  from measurement + tailoring convention, not from copying a competitor.
-- **Asset-identity correction:** `audit/ss/model_*.png` were mis-identified as waistcoat layers
-  in earlier sessions — live teardown confirms they're actually Suitsupply's `Jacket/model`
-  component (the torso shell with sleeves/lapel/pockets removed, composited separately). Doesn't
-  change any prior conclusion (Session 2's torso-parity measurement was comparing the right thing
-  either way) but worth knowing if you go back to those files.
-- **Tooling:** `audit/panel_angles.py` rewritten (was buggy — the coherence ratio it inherited
-  from `pattern_map.py` blows up on flat/uniform regions, background or a cutout's own silhouette
-  edge, and reads as false "pattern"; fixed with a real subject mask + energy floor + optional
-  erosion). Use this, not `pattern_map.py` directly, for any future per-panel angle work —
-  including the sleeve/back verification the spec above calls for as still-open.
-- **Not done this session (deliberately — research-first per the approved plan):** no compositor
-  code changed. `plan/PATH_A_GRAIN_SPEC.md`'s "Implementation sequencing" section is the next
-  session's starting point.
-- **Addendum (same day): checks/windowpane, not just stripes.** The R2 measurement above is
-  stripe-only. Went back and visually confirmed (isolated native-res check-fabric layers pulled
-  live) that a check's grid rotates as ONE RIGID UNIT on the lapel — both axes tilt together,
-  staying perpendicular — same qualitative behavior as a stripe. **This means Path A's planned
-  fixed-angle rotation needs no separate 2D-pattern code path** — it's a coordinate rotation, so it
-  rotates whatever's in the tile automatically. A hard quantitative angle number for checks
-  specifically wasn't obtained (the stripe measurement method doesn't transfer — see the addendum
-  in the spec for the real technical reason) but isn't needed given the mechanism finding.
-- **Addendum 2 (same day): cross-checked against real, non-Suitsupply suit photography —
-  ±11°/±5° are now FLOOR estimates, not final targets.** Every number so far came from one source
-  family (Suitsupply). Pulled two independent real photos from Permanent Style (a checked jacket,
-  a chalk-stripe DB) and re-measured. The mechanism held up (lapel tilts, torso doesn't); the
-  **magnitude didn't** — the real checked jacket's lapel visually read as 15-30°, well above the
-  11° the single Suitsupply photo gave. Sleeve re-measurement hit its own catch: an automated
-  reading that "converged" cleanly to +11-12° turned out, on inspecting a diagnostic overlay, to
-  be measuring the sleeve's own silhouette edge against the background, not the pinstripes at
-  all — once corrected, the real signal was too noisy in that particular photo to get a clean
-  number. **Implement Path A with 11°/5° as starting points, then tune by eye against the render**
-  — don't treat them as fixed. Full detail + the methodological lesson (automated angle
-  measurement is reliable on studio photography and CDN layers, not on casual/editorial real
-  photos) is in `plan/PATH_A_GRAIN_SPEC.md`'s "Addendum 2".
-- **Addendum 3 (same day): confirmed directly with KuteTailor that their factory actually does
-  this.** The render only matters if the delivered garment can reflect it — checked
-  `platform.kutetailor.com` (logged in as the ARUAP account) and found a real, orderable house
-  product (`26AWM2P203`/`DBV9300`, a check DB jacket) whose own 18 product photos show the exact
-  same pattern-matching behavior as everything else this session: lapel tilts, body stays
-  orthogonal. **Their cutters can and do produce this** — strongest possible evidence, since it's
-  KuteTailor's own manufactured sample, not a competitor's marketing photo. Caveat: the order
-  platform's preview is a fixed hero photo per style (doesn't regenerate per fabric swatch), and
-  there's no pattern-matching field anywhere in their craft-code catalog to explicitly request or
-  verify it per order — so this is strong evidence of *capability*, not a per-order guarantee.
-  Detail in `plan/PATH_A_GRAIN_SPEC.md`'s "Addendum 3".
-
-### ⭐⭐ Session 4 (same day) — Suitsupply render-architecture teardown
-
-Follow-on to the grain-spec work: a full technical audit of Suitsupply's live configurator's
-rendering engineering (layers/dimensions/style-code taxonomy, explicitly NOT sizing/UI). Full
-result: **`plan/SS_RENDER_ARCHITECTURE_SPEC.md`**. Headline: **it validates GCC's own
-architecture rather than changing it.**
-
-- **Exact-percentage proof that Suitsupply's geometry is fixed per style, fabric-independent**
-  (99.9%+ pixel-identical alpha masks across two different fabrics, same style) — the same
-  architecture GCC's compositor already uses (one mask per cut, cloth swapped at runtime).
-- **Confirmed their jacket has NO live per-panel pattern rotation to reverse-engineer** — it's 11
-  pre-baked PNG layers per fabric SKU (model/shoulder/lining/chest-pocket/lapel/pocket/buttons×3/
-  stitching×2), offline-rendered, not computed client-side. Trousers get 3 rotation angles (33
-  images total); waistcoat is 5 layers, captured for the first time this session. Jacket itself
-  has NO side/back view in their tool at all (front only) — confirms the existing
-  `gcc-pattern-render-playbook` memory note on this rather than adding anything new.
-- **Delivered canvas is a fixed 900×1125 for every layer**; native/source resolution is much
-  higher and differs by garment (jacket 3280×4100, trousers 2000×2500) — same aspect ratio as
-  delivery, clean downscale. Confirms GCC's own 1792×2400→W=1300 relationship is the same shape
-  of decision, just scaled to GCC's budget.
-- **Style-code taxonomy decoded:** every layer's path is `{shared prefix}_{layer-specific
-  suffix}` — changing Closure updates the prefix on all 11 layers at once; each layer's own
-  suffix only changes when that specific option changes. DB closures auto-default the lapel to
-  Peak (sticky, independently editable after) — matches GCC's own `CUTMAP` constraint
-  (`build_configurator_v0.py:483-484`) at the underlying-convention level.
-- **Re-verified the Session 3/4 asset-identity question a second, independent way** (direct pixel
-  comparison of fresh isolated jacket vs. waistcoat pulls against the local `model_*.png` files)
-  — confirms the correction already made above; `model_*.png` really is the jacket, not the
-  waistcoat.
-- **No action items for the compositor** — this was a validation pass, not a gap-finder. See the
-  spec's "What this means for GCC" section for the point-by-point mapping to `buildPanels`/
-  `buildWarpNormal`/`warpedCloth`.
-
-- **`configurator-v0.html`** — self-contained, **6.60 MB** (15 cut-views incl. side/back),
-  data-URIs, zero external refs. ⚠ **Still heavy for a Shopify embed** — compression is done
-  (§2); externally host the 10 side/back cut-views before embedding (§6 item 2).
-- **Right-rail UI** (user-approved). Stage + rail (Fabric / Style / Measurements). Bottom-left card
-  now has a working **Front / Side / Back** view toggle.
-- **17 cloths** — 10 Elite + 2 Elite pinstripes (DBT6860, DBU081A) + 5 Prestige test.
-- Add-to-cart → Shopify container product; "View details" → real KuteTailor `saveOrder` spec.
-
-### ⭐⭐ Session 3 (2026-07-22) — consistent man, front/side/back, Path A prototype (commits `a4bb539`→`6666b3f`)
-
-- **ALL 5 CUTS now the SAME man, and FRONT/SIDE/BACK all exist.** Regenerated the 4 non-notch
-  fronts off the notch hero (identity held) + generated 10 side/back renders → 15 total. The "man
-  changes when you switch cut" problem is GONE. Pipeline: `gen_model.py` (hero as ref) →
-  `normalize_render.py` → shoe-neutralise → `make_mask` → `make_drape` → Marigold → build. Marigold
-  ran at **N_RES=448** (~5 min/render, Chrome closed to free RAM — the 8GB M1 swap-thrashes at
-  768/apps-open; `finish_renders.sh` is the one-shot). `gen_normals_all.py` now takes cut names as
-  args.
-- **View dimension WIRED** in the builder: assets keyed `"<cut>__<view>"`; `CUTVIEWS` per-cut
-  availability; Front/Side/Back control drives `curView`; `render()` uses `cutAssets[cut+'__'+vv]`.
-  All 15 cut-views load, 0 console errors.
-- **Mask fixes** (`make_mask.py`): **connected-component keep** (drops the hair blob the classifier
-  catches on cooler side/back); **shoulder-highlight reclaim** (grey shoulder patches on side/back
-  were mid-tone cloth in the ramp's partial-alpha zone — full alpha to neutral interior cloth V
-  0.50-0.85, silhouette edge kept soft); **found + fixed** `ImageDraw.floodfill` being a silent
-  no-op on 'L' images in Pillow 11.3 (RGB now). Added fast separable `_dilate`.
-- **PATH A prototype BUILT** (`builder/pathA_prototype.py`) — proved live per-panel pinstripe wrap
-  is feasible: segment garment into panels, grain per panel → lapels diagonal, torso vertical.
-  Angles were GUESSED; seams ragged. **Next step is the approved research plan
-  `plan/PATH_A_RESEARCH_PLAN.md`** (measure SS per-panel angles + tailoring convention + resolve
-  the grain-rotation-vs-surface-vs-taper question), THEN port into the compositor. User chose Path A
-  (live per-panel) over AI-baking the pinstripes.
-
-### ⭐ Session 2 (2026-07-22) — what changed since the table below was written (commit `0e66499`)
-
-- **Crease depth FIXED — and the lever was the COMPOSITOR, not the base render.** The old §6.2
-  claim ("lever is a hero prompt change") was measured and **overturned**: the render already had
-  SS-deep creases (p1/med 0.060), the drape file 0.045; `soften_drape` + the overlay were
-  flattening them to 0.25. Fixed with a structural-crease restore in `soften_drape` (+drape JPEG
-  q90) → **composite 0.073**. Fabric-independent, applies to every cloth. Residual: shadow p5
-  still ~0.40 vs SS 0.19 (deliberate stop — deeper needs touching the locked fold look).
-- **Pattern wrap RESOLVED as a non-issue.** Measured at matched px/cm: torso is already at SS
-  parity (spread 22.2 vs 23.1; swing 5.6 vs their 2.8). `SIL_WRAP` measurably *regresses* both and
-  shears sleeves → **tried-and-rejected** (§8). The "22.7° swing" was the full-silhouette splay
-  incl. sleeves, a per-tube effect, never a torso property.
-- **Stripe source fixes** (`prep_fabrics.py`): scans were leaning up to 1.3° → **deskew** +
-  motif-period-snap; **SS-style line-width floor** (2.2 canvas px, gated to thin-line/wide-pitch)
-  — SS's "clean lines" are drawn ~2× physical width, a display idealisation, not fidelity;
-  contrast **B (0.85)** locked for stripes.
-- **Mask fixes** (`make_mask.py`, recall 1.000 on all 5 cuts): skin-bounce reclaim (hand smudges),
-  hull-based shoe cut (stripes no longer composite across black leather), enclosed-hole fill
-  (sleeve blotches). `WARP_CAP` 16→6.5 (stripes were S-bending in crotch/hem creases).
-- **`prep_fabrics.py` normalisation anchors FROZEN** → the 117-batch blocker (old §6.5) is
-  resolved; existing 9 fabrics' params verified byte-identical.
-- **All 5 cuts re-piped** (masks + drapes regenerated to this pipeline).
-- **Baked-still experiment** (SS fabric-step architecture) added then **disabled** — the catalog
-  still is a different model/pose than the compositor's house model, so switching tabs swapped the
-  man (user rejected). Code path retained in the builder (`STILLS` dict) for when stills are baked
-  on the house model.
-- **Research done** → `plan/RESEARCH_FINDINGS.md` (adversarially reviewed). Conclusion:
-  **difficulty-routing** — keep the compositor for the ~85% easy majority (at parity), AI-bake only
-  the ~27–29 bold directional patterns, after a validation gate (bake a pinstripe+windowpane onto
-  the *standing* house render, compare vs compositor) and after the 14 renders land.
-
-### Measured against Suitsupply (their **photographic model** layer)
+Compared at **matched cloth density** (8.81 px/cm). Their reference is a chest-up phone shot at
+23.05 px/cm — comparing raw makes ours look soft when it is merely showing more of the man.
 
 | | Ours | SS | |
 |---|---|---|---|
 | Colour vs mill scan | 98% | 105% | ✅ |
 | Pattern scale | 0.99× true | true | ✅ |
-| Pattern sharpness | 95% of true cloth | — | ✅ |
 | Moiré | none | none | ✅ |
 | Specular (p99/med) | 3.08 | 3.30 | ✅ |
 | On-screen cloth density | 9.95 px/cm @1448×1086 | 10.3 | ✅ |
-| Pattern wrap (torso, matched px/cm) | spread 22.2 / swing 5.6 | 23.1 / 2.8 | ✅ parity (Session 2) |
-| **Crease depth (p1/med)** | ~~0.24~~ → **0.073** | **0.031** | ✅ fixed in compositor (Session 2) |
-| **Shadow depth (p5/med)** | **~0.40** | **0.19** | 🟡 residual, deliberate stop |
-| **Lapel grain** (front, measured) | ~~−7.5°~~ → **−17.3°** | −12.1° photo / −30.6° CAD | ✅ live (Session 5) |
-| **Collar grain** (back, measured) | ~~−0.8°~~ → **+86.8°** | −85 to −90° (CDN layer) | ✅ live (Session 5) |
+| Crease depth (p1/med) | 0.073 | 0.031 | ✅ |
+| Lapel grain (front, measured) | −17.3° | −12.1° photo | ✅ |
+| Collar grain (back, measured) | +86.8° | −85 to −90° (CDN) | ✅ |
+| Ramp-free shading residual | **0.398** | 0.372 | ✅ we carry *more* form |
+| Cloth band-limiting (lag-1 autocorr) | 0.45–0.66 → **~0.89** | 0.96 | ✅ after FOOTPRINT 1.15 |
 
----
+**A long-standing entry has been deleted, not moved:** "shadow depth p5/med ~0.40 vs SS 0.19".
+It does not reproduce at any density — reference 0.541 native / 0.556 matched, ours 0.588, a 5.8%
+gap rather than 2×. Do not re-open it.
+
+### Shipping state
+
+- **`configurator-v0.html`** — self-contained, ~7 MB, all 15 cut-views, zero external refs.
+- **Split build** for Shopify: `GCC_SPLIT=1 python3 builder/build_configurator_v0.py` → `dist/`
+  (core = compositor + CSS + markup + 5 front cut-views; views = the 10 side/back, lazily
+  fetched on the first Side/Back click; a 488-byte `{% layout none %}` page template).
+- **`/pages/design-your-suit`** — a **DRAFT** page (`gid://shopify/Page/117734375611`) on the
+  **Prestige** theme `149240774843` (serves at `t/59`). Publishing the theme and the page are
+  both the user's steps; the connector blocks live-theme writes and theme publishing.
+- ⚠ **The deployed Shopify bundles are STALE.** `gcc-configurator-core-v5.js` /
+  `gcc-configurator-views-v2.js` are the state at commit `cf7b59f`. Everything after that — the
+  gorge retouch, the drape debias, FOOTPRINT 1.15, the neutral stage and contact shadow — is in
+  the repo but NOT deployed. Re-upload before publishing.
+- **17 cloths**; add-to-cart → Shopify container product; "View details" → a real KuteTailor
+  `saveOrder` spec.
+
+### How it got here (compressed)
+
+| Session | What it established |
+|---|---|
+| 2 | Crease depth's lever is the COMPOSITOR, not the render. `SIL_WRAP` rejected in its original whole-row affine form. Stripe scans deskewed + period-snapped. |
+| 3 | All 5 cuts became the same man; front/side/back generated (15 cut-views); mask hair/shoe/shoulder fixes. |
+| 4 | Path A research → `plan/PATH_A_GRAIN_SPEC.md`; Suitsupply render-architecture teardown → `plan/SS_RENDER_ARCHITECTURE_SPEC.md`. |
+| 5 | Path A implemented; Shopify embed built; deliverable trimmed; shoulder mask fixed; pattern warp removed; arc-length unwrap added; renders retouched; visual-parity pass. |
 
 ## 3. Layout
 
@@ -383,7 +122,8 @@ architecture rather than changing it.**
 │   ├── check_render.py             10 acceptance checks
 │   ├── make_mask.py                garment segmenter (coverage ramp)
 │   ├── make_drape.py               drape map from render + mask
-│   ├── panels.py                   ⭐ Path A: panel segmentation + PANEL_ANGLES (the grain table)
+│   ├── panels.py                   ⭐ Path A: panel segmentation + PANEL_ANGLES + cylinder profiles
+│   ├── fix_gorge.py                ⭐ retouches the missing RIGHT gorge on the 5 front renders
 │   └── (prep_fabrics.py lives at the REPO ROOT, not here — the builder copy was a
 │        stale fossil without deskew/period-snap/line-floor and is now a hard-exit stub)
 │   └── recolor_shoes.py            SUPERSEDED (generate black directly)
@@ -427,11 +167,30 @@ changing it.**
 | `CROP_FRAC` | 1.0 | full figure incl. shoes (the approved design) |
 | `RSCALE` | W/700 | **all px-tuned constants scale by this** |
 | `OVERSAMPLE` | **2** | samples/texel = SS/OVERSAMPLE. At 4 it was 0.75 (sub-Nyquist) → heavy moiré on checks |
-| `FOOTPRINT` | **0.55** | runtime filter width. 1.0 double-filters the already-prefiltered tile and cost 29% sharpness |
-| `SIL_WRAP` | **0.00** | silhouette wrap — implemented, validated on torso, disabled (see §6) |
+| `FOOTPRINT` | **1.15** | runtime filter width — see the note below |
+| `WARP_AMP_MULT` | **0.0** | the normal-driven pattern warp, removed. Do not revive it (§8) |
+| `UNWRAP_AMP` | **1.0** | per-panel arc-length cylindrical unwrap. This is what makes the pattern hug the body |
+| `CYL_STEP` | 8 | rows between sampled cylinder profiles; interpolated between |
 | `DRAPE_TARGET_MED` | **111.4** | drape median = an exposure term. Calibrated so garment = ~100% of cloth |
-| `STAGE_RGB` | (245,242,236) | must equal `--stage` in the CSS; injected |
+| `STAGE_RGB` | **(239,239,239)** | neutral studio grey; must equal `--stage` in the CSS; injected |
+| `SHADOW_*` | 1.55 / 0.16 / 13.0 / 0.16 | the elliptical contact shadow under the shoes (w, h, blur, strength) |
 | `PAT_DENSITY` | = OVERSAMPLE | emitted from it — cannot drift |
+
+In `builder/panels.py`:
+
+| Constant | Value | Why |
+|---|---|---|
+| `PANEL_ANGLES` | 0,0,0,−16,+16,−5,+5,87,0 | the grain table — **the single tuning point for Path A** |
+| `NZ_FLOOR` | 0.70 | clamps the unwrap's 1/sqrt(1−t²) at the silhouette. Lower = more compression, and past ~0.55 the edge smears |
+| `TORSO_R_FRAC` | 0.70 front/back, 1.00 side | torso cylinder radius as a fraction of half-width |
+| `SLEEVE_RHO` | 1.00 | sleeves are nearly circular in section, so no flattening |
+
+**`FOOTPRINT` was 0.55 for four sessions and that was wrong.** The 0.55 justification ("1.0
+double-filters and costs 29% sharpness") measured our own output against itself, so it could only
+ever prefer *less* filtering. Measured against the actual reference instead — lag-1
+autocorrelation, i.e. how band-limited real photographed cloth is — Suitsupply reads 0.96 and we
+read 0.45–0.66. Ours was *sharper than a photograph*, which is what produced the fine per-pixel
+beading on stripes. 1.15 lands at ~0.89. A camera's MTF is not a bug to be minimised.
 
 **Two invariants that are easy to break:**
 1. `PX_PER_CM` derives from the **uncropped** `H_FULL`.
@@ -467,38 +226,50 @@ python3 builder/build_configurator_v0.py                     # 5. build
 
 ---
 
-## 6. Next actions, in priority order (revised Session 5, 2026-07-23)
+## 6. Next actions, in priority order (rewritten 2026-07-23)
 
-1. **Tune the grain by eye on more cloths, if it wants it.** Path A is DONE and shipping (§2);
-   `PANEL_ANGLES` in `builder/panels.py` is the one place to change it, and the calibration note
-   there explains why rendered ≈ table + 4° on the lapel. Only the two Elite pinstripes
-   (DBT6860, DBU081A) have really been judged — worth a look on a check/windowpane, where the
-   prediction is that both grid axes rotate together with no extra code.
-2. **Publish the embed.** Built and verified (§2) but DRAFT. To go live: publish the Prestige
-   theme `149240774843`, then set the page `gid://shopify/Page/117734375611` to published. Both
-   steps are blocked for the connector, so they are yours. Preview first via the theme preview —
-   the page is a draft, so you need to be signed in as staff to see it. Decide too whether
-   `{% layout none %}` (no site header/nav on that page) is what you want.
-3. **Difficulty-routing bake fallback (`plan/RESEARCH_FINDINGS.md`)** — only if Path A quality is
-   judged insufficient: AI-bake the ~27–29 bold directional fabrics onto the STANDING render (run
-   the validation gate first). Path A is preferred (one-time, all-fabrics, live) and is now built.
-4. **Batch all 117 fabrics** — UNBLOCKED (anchors frozen); spot-check outliers.
-5. **Register `orders/paid` webhook** + wire the backend.
+The four items below came out of a visual parity audit against the Suitsupply reference. They are
+ordered by how much a shopper would notice them.
 
-**Minor known defects (noted, non-blocking):** deliverable size (6.60 MB, #2 above); the side
-view has no sleeve panel, so it gets lapel + collar grain but no sleeve lean (§2, deliberate);
-a thin antialiased rim at the shoulder silhouette on side/back, which is the coverage ramp
-working as designed (the broad blotch that used to be filed here was real and is now fixed, §2).
+1. **The mask paints cloth over buttons and pocket welts.** `builder/make_mask.py:109-113` fills
+   "pinholes" morphologically, and a button is a pinhole to that test. So the chosen cloth is
+   composited straight over every button, buttonhole and welt — the garment reads as a smooth
+   shell. Fix: detect them (they are dark, round, and consistent across all 15 cut-views) and
+   punch them back out of the coverage mask so the render's own buttons show through.
+2. **The tile blend prints a faint grid.** Weave contrast dips 39–53% in the blend band, once per
+   tile, so on a plain cloth a regular grid is faintly visible. Fix in `prep_fabrics.py`: blend
+   in a contrast-preserving space, or hide the seam inside a stripe repeat as the horizontal
+   snap already does.
+3. **`stripe_period` mis-detects DBS175A** (`prep_fabrics.py:153`): d=61 where the true repeat is
+   201, so that cloth renders at ~3× its real stripe pitch. `audit/period.py` is unreliable in
+   general (§7) — verify by eye against the scan.
+4. **Whites clip.** 45% of shirt-placket pixels sit at ≥250 where the reference ceilings at 240.
+   Costs the shirt its texture next to the suit. A ceiling in `normalize_render.py`.
 
-**DONE Session 5:** Path A implemented end-to-end — `builder/panels.py` segmenter + per-panel
-rotation in the compositor, shipped at lapel ±16 / sleeve ±5 / collar 87, no torso regression
-(0 leaked pixels); side/back shoulder mask blotch diagnosed and FIXED (missed px −42%, side-view
-run width 37-52px → 10-12px), make_mask ~4x faster; deliverable 10.87 → 6.60 MB via
-half-resolution normal maps. **DONE Session 4:** Path A research plan (R1-R4) executed — `plan/PATH_A_GRAIN_SPEC.md` delivered;
-`audit/panel_angles.py` fixed (was silently wrong on flat/uniform regions). **DONE Session 3:** 14
-renders + consistent man across cuts, front/side/back views wired, mask hair/shoe/shoulder fixes,
-Path A prototype. **DONE Session 2:** pattern wrap (rejected as global), crease depth (compositor
-fix), prep normalisation (anchors frozen), stripe deskew + line floor.
+Then:
+
+5. **Re-upload the Shopify bundles** — the deployed `core-v5` / `views-v2` predate the gorge
+   retouch, the drape debias and FOOTPRINT 1.15 (§2). Rebuild with `GCC_SPLIT=1` and re-upload
+   before anyone sees the page.
+6. **Publish the embed.** Publish the Prestige theme `149240774843`, then set page
+   `gid://shopify/Page/117734375611` to published. Both blocked for the connector — yours. Decide
+   too whether `{% layout none %}` (no site header/nav on that page) is what you want.
+7. **Tune `PANEL_ANGLES` by eye on more cloths.** Only the two Elite pinstripes (DBT6860,
+   DBU081A) have really been judged. Worth a look on a check or windowpane, where the prediction
+   is that both grid axes rotate together with no extra code.
+8. **Batch all 117 fabrics** — unblocked (anchors frozen); spot-check outliers.
+9. **Register `orders/paid` webhook** + wire the backend.
+
+**Known and deliberate, not defects:** the side view has no sleeve panel (in profile the arm sits
+mid-silhouette, so there is nothing to key off); a thin antialiased rim at the shoulder silhouette
+on side/back, which is the coverage ramp working as designed; and the ~7 MB deliverable, which the
+split build already solves for the web.
+
+**Dropped from this list:** the "shadow depth 0.40 vs SS 0.19" item — it does not reproduce (§2).
+
+**Difficulty-routing bake fallback** (`plan/RESEARCH_FINDINGS.md`) stays on the shelf: AI-baking
+the ~27–29 bold directional fabrics onto the standing render is only worth it if Path A quality is
+judged insufficient, and Path A is now built and shipping.
 
 ---
 
@@ -521,6 +292,19 @@ fix), prep normalisation (anchors frozen), stripe deskew + line floor.
   is bit-exact and 27% smaller than PNG; lossy WebP/JPEG hit 18–20° of vector error.
 - Browser console: top-level `let`/`const` are **not** on `window` — probe with bare identifiers.
 - MCP blocks live-theme writes and `themeFilesDelete`.
+- **Never move file bytes through a tool payload.** Hand-transcribing base64 corrupted an upload
+  at 3,519 of 6,616 bytes. Stage the file and `curl` it. Same failure as the handover's
+  "retype→403" note — one rule: bytes go over the wire, never through the model.
+- **`themeFilesUpsert` with a URL body silently no-ops for `templates/*.liquid`** (it works fine
+  for `assets/*`). Returns success, writes nothing. Keep templates small enough to send as TEXT —
+  ours is 488 bytes because the markup and CSS live in the JS bundle.
+- **A metric that can't see the defect is worse than no metric.** Three gorge-symmetry metrics
+  were tried against a known-broken render and its fixed twin; one read *backwards* (0.99 broken
+  vs 0.61 fixed). None shipped — see the comment at the top of `builder/check_render.py`.
+- **Debias what is a lighting artifact, never what is the modelling.** A left/right luminance ramp
+  is an artifact on a front or back view and the actual form on a profile; trousers are already
+  clean, so a whole-garment fit injects the jacket's bias into them. Both scopes are in
+  `make_drape.py` and both were found by breaking something.
 - 8 GB M1 — heavy compute off-hours, Chrome quit.
 
 ---
@@ -538,8 +322,19 @@ fix), prep normalisation (anchors frozen), stripe deskew + line floor.
   (Dress-1-to-3, ReWeaver) is papers, not products.
 - Rejected renderer changes: **AO/crevice darkening in folds** · fold-scale warp wiggle ·
   per-pixel sheen tint · mirror tiles · guessed pattern densities · lossy normal maps ·
-  anchoring the drape median at 128 · **silhouette pattern wrap `SIL_WRAP` (Session 2 — torso is
-  already at SS parity; it regresses spread + swing and shears the sleeves)**.
+  anchoring the drape median at 128.
+- **The normal-driven pattern warp is dead** (Session 5, `WARP_AMP_MULT = 0.0`). It was derived
+  from a lighting-correlated normal map, so it expanded the pattern where foreshortening must
+  compress it on 86.6% of torso pixels; it lost to a flat pattern on 24 of 24 panel-cases against
+  a cylinder ideal; and it dilated stripe spacing +9.6%, silently breaking the true-scale
+  calibration that is one of this project's few hard wins. Do not revive it in any form that
+  reads geometry out of a lighting-derived map.
+- **`SIL_WRAP` was rejected in Session 2 and its IDEA was later proven right** — this is the one
+  entry on this list that moved. What was rejected is the *implementation*: a global whole-row
+  affine that sheared sleeves and regressed orientation spread. Cloth genuinely does compress
+  toward a silhouette, and Session 5 shipped it correctly as a **per-panel arc-length unwrap**
+  (§2) once panel geometry existed to scope it. Rejecting the 2026-07-22 version was right;
+  "cloth should not wrap" was never the finding.
 - **Crease depth's lever is the COMPOSITOR (`soften_drape`), not the base render** (Session 2,
   measured stage-by-stage). Do not re-propose a hero-prompt crease change; the render is already
   SS-deep.
