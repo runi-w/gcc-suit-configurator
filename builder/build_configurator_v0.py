@@ -267,10 +267,20 @@ def _fit(im):
     must be cropped identically or the composite tears."""
     return im.resize((W, H_FULL), Image.LANCZOS).crop((0, 0, W, H))
 
-# cut x VIEW. Each cut's front filename is front_<base>; side/back share the base with a
-# swapped prefix. A view is embedded only when all three assets exist, so the build works
-# incrementally while sides/backs are still being generated. id = "<cut>__<view>".
-VIEWS = ["front", "side", "back"]
+# cut x VIEW. Each cut's front filename is front_<base>; back shares the base with a swapped
+# prefix. A view is embedded only when all three assets exist, so the build works incrementally
+# while backs are still being generated. id = "<cut>__<view>".
+#
+# SIDE VIEWS REMOVED 2026-07-23 (user: "we can actually take out the side views I dont need it,
+# I only need front and back"). The side assets are still on disk and the pipeline still builds
+# them if "side" is put back in this list — panels.py, make_mask.py and make_drape.py all still
+# carry their view-aware branches (TORSO_R_FRAC_SIDE, DEBIAS_SIDE), so this list is the only
+# switch and nothing needs re-deriving. Removing the side views also retires two problems that
+# only ever affected the profile: the lapel panel ran to 69%
+# of jacket height instead of stopping at the button point around 44% (so the bottom third of the
+# front quarter was rendered on a 16 deg bias), and the profile had no sleeve panel at all
+# because the arm sits mid-silhouette rather than at its edges.
+VIEWS = ["front", "back"]
 cutviews = {}
 for cid, fn, openf in CUTS:
     for view in VIEWS:
@@ -304,7 +314,7 @@ for cid, fn, openf in CUTS:
         # consumes this map in exactly two ways, both of which discard high frequencies: dispX/
         # dispY, which is box-blurred at NSMOOTH (22 px here) and capped at WARP_CAP; and graze,
         # a broad grazing-angle term for the sheen. Measured at half scale (2026-07-23, on front/
-        # side/back): displacement error p95 0.05-0.12 px and MAX 0.30 px against a 12 px cap,
+        # back): displacement error p95 0.05-0.12 px and MAX 0.30 px against a 12 px cap,
         # graze error p95 <0.01 — sub-pixel, for 2.8x fewer bytes. No JS change needed either:
         # buildWarpNormal already does drawImage(nimg,0,0,W,H), so the browser upsamples it.
         NORMAL_SCALE = 0.5
@@ -442,7 +452,7 @@ HTML = r"""<meta charset="utf-8"><meta name="viewport" content="width=device-wid
  .viewbar button:hover:not(:disabled){color:var(--ink)}
  .viewbar button.on{color:var(--ink);font-weight:500}
  .viewbar button.on::after{content:"";position:absolute;left:20px;right:20px;bottom:9px;height:2px;background:var(--ink);border-radius:2px}
- /* while the lazily-loaded side/back bundle is in flight (Shopify build only) */
+ /* while the lazily-loaded back bundle is in flight (Shopify build only) */
  .viewbar button.busy{color:var(--soft);cursor:progress}
  .viewbar button.busy::after{content:"";position:absolute;left:20px;right:20px;bottom:9px;height:2px;border-radius:2px;
    background:linear-gradient(90deg,transparent,var(--ink),transparent);background-size:200% 100%;animation:gccload 1s linear infinite}
@@ -571,7 +581,6 @@ HTML = r"""<meta charset="utf-8"><meta name="viewport" content="width=device-wid
      <svg viewBox="0 0 24 24"><path d="M15 3h6v6M21 3l-7 7M9 21H3v-6M3 21l7-7"/></svg>
     </button>
     <button id="viewFront" class="on">Front</button>
-    <button id="viewSide">Side</button>
     <button id="viewBack">Back</button>
    </div>
   </div>
@@ -700,7 +709,7 @@ function buildPanels(img){const c=document.createElement('canvas');c.width=W;c.h
   const p=new Uint8Array(W*H);for(let i=0;i<W*H;i++)p[i]=d[i*4];return p;}
 function sizeHero(){const st=hero.parentElement;if(!st||!W)return;const sw=Math.max(40,st.clientWidth-6),sh=Math.max(40,st.clientHeight-6),AR=W/H;
   let h=sh,w=h*AR;if(w>sw){w=sw;h=w/AR;}hero.style.width=Math.round(w)+'px';hero.style.height=Math.round(h)+'px';}
-// One cut-view's assets -> cutAssets. Split out of init() so the side/back views can be added
+// One cut-view's assets -> cutAssets. Split out of init() so the back views can be added
 // later from a second bundle (see ensureViews) instead of all 15 loading up front.
 async function addCut(c){
   if(cutAssets[c.id])return;
@@ -730,7 +739,7 @@ async function addCut(c){
     cutAssets[c.id]={base:b,drapeLA:dc,warp,pct,pst,pax,pay,cyl:c.cyl,
       panel:buildPanels(pimg),
       seam:c.openFront?buildSeamPhase(warp.alpha):new Uint8Array(W*H)};}}
-// LAZY SIDE/BACK. 10 of the 15 cut-views are side/back and most visitors never leave the front,
+// LAZY BACK. 5 of the 10 cut-views are backs and most visitors never leave the front,
 // so the Shopify build ships them as a second bundle that is fetched on the first Side/Back
 // click. The self-contained local build has all 15 in CUTS and GCC_MORE_URL unset, so this is a
 // no-op there and the two builds stay one code path.
@@ -739,7 +748,7 @@ function ensureViews(){
   if(morePromise)return morePromise;
   if(!window.GCC_MORE_URL)return Promise.resolve();
   morePromise=new Promise((res,rej)=>{const s=document.createElement('script');
-      s.src=window.GCC_MORE_URL;s.onload=res;s.onerror=()=>rej(new Error('side/back bundle failed'));
+      s.src=window.GCC_MORE_URL;s.onload=res;s.onerror=()=>rej(new Error('back bundle failed'));
       document.head.appendChild(s);})
     .then(async()=>{for(const c of (window.GCC_MORE_CUTS||[]))await addCut(c);})
     .catch(e=>{morePromise=null;throw e;});   // let a failed load be retried on the next click
@@ -923,17 +932,16 @@ function updateChrome(){const a=selInfo();const sn=document.getElementById('selN
 // At the Fabric step, fabrics that have an approved catalog still show it instead of the
 // live composite; the compositor takes over on the Style step. Back enables when the
 // fabric has a back still.
-// Front/Side/Back drive curView for the live compositor. When a fabric still is showing
+// Front/Back drive curView for the live compositor. When a fabric still is showing
 // (Fabric tab), views instead follow the still's availability (front + optional back).
 function updateViewButtons(){
   const {cut}=resolveCut();const avail=CUTVIEWS[cut]||['front'];
   const f=FABRICS.find(x=>x.code===state.fabric)||{};
   const stillOn=activeSection==='fabric'&&!!f.still;
   const has={front:true,
-             side: !stillOn && avail.includes('side'),
              back: stillOn ? !!f.stillBack : avail.includes('back')};
   if(!has[curView])curView='front';
-  [['viewFront','front'],['viewSide','side'],['viewBack','back']].forEach(([id,v])=>{
+  [['viewFront','front'],['viewBack','back']].forEach(([id,v])=>{
     const b=document.getElementById(id);if(!b)return;
     b.disabled=!has[v];b.title=has[v]?'':(v+' view not available yet');
     b.classList.toggle('on',curView===v);});}
@@ -952,7 +960,7 @@ function buildDock(){renderTabs();renderPanel();
   const sl=document.getElementById('specLink');if(sl)sl.onclick=openTicket;
   const ex=document.getElementById('expand');
   if(ex)ex.onclick=()=>{document.getElementById('app').classList.toggle('zen');sizeHero();};
-  [['viewFront','front'],['viewSide','side'],['viewBack','back']].forEach(([id,v])=>{
+  [['viewFront','front'],['viewBack','back']].forEach(([id,v])=>{
     const b=document.getElementById(id);if(b)b.onclick=async()=>{if(b.disabled)return;
       if(v!=='front'&&window.GCC_MORE_URL&&!cutAssets[resolveCut().cut+'__'+v]){
         b.classList.add('busy');
@@ -1114,7 +1122,7 @@ print("wrote", OUT, f"({os.path.getsize(OUT)/1024/1024:.2f} MB)")
 # map came back as a 46 KB JPEG with 20 levels of pixel error). It serves .js byte-exact and
 # gzipped. So the data-URIs stay exactly as they are and ride inside a JS bundle.
 #   core.js  = the compositor + the 5 FRONT cut-views  (the initial load)
-#   views.js = the 10 side/back cut-views              (fetched on the first Side/Back click)
+#   views.js = the 5 BACK cut-views                    (fetched on the first Back click)
 #   .liquid  = the markup + CSS, as a page template
 if os.environ.get("GCC_SPLIT") == "1":
     DIST = f"{HM}/dist"
