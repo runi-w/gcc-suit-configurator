@@ -657,9 +657,12 @@ const hero=document.getElementById('hero'),hv=hero.getContext('2d');
 // CSS-minifying a full-res canvas shimmer-aliases fine stripes on phones (bilinear at
 // 0.3-0.6x); a mipmap chain into a devicePixelRatio-sized canvas keeps them clean.
 const heroSrc=document.createElement('canvas'),hx=heroSrc.getContext('2d');
-let _mip=document.createElement('canvas');
-function presentHero(){if(!W)return;
-  const dpr=window.devicePixelRatio||1;
+let _mipA=document.createElement('canvas'),_mipB=document.createElement('canvas');
+function presentHero(){if(!W)return;try{
+  // dpr capped at 2: dpr-3 phones would ask for a 1100x2450 display canvas; 2 is visually
+  // indistinguishable here and halves the display-canvas memory. Mip canvases are persistent —
+  // allocating canvases per frame is how iOS runs out of canvas memory.
+  const dpr=Math.min(window.devicePixelRatio||1,2);
   const cw=Math.max(2,Math.round(parseFloat(hero.style.width||W)*dpr));
   const ch=Math.max(2,Math.round(parseFloat(hero.style.height||H)*dpr));
   if(hero.width!==cw||hero.height!==ch){hero.width=cw;hero.height=ch;}
@@ -674,21 +677,24 @@ function presentHero(){if(!W)return;
   // narrower than 520 CSS px) and locked desktop into the crop
   if(window._mobileCrop){sx=Math.round(W*0.20);sy=Math.round(H*0.06);sW=Math.round(W*0.60);sH=Math.round(H*0.50);}
   let src=heroSrc,sw=W,sh=H;
-  const mx=_mip.getContext('2d');
   // first hop extracts the source window, then halve until within 2x of target
   {const nw=Math.min(sW,Math.max(cw,Math.round(sW*0.5))),nh=Math.round(nw*sH/sW);
-   const first=document.createElement('canvas');first.width=nw;first.height=nh;
-   const c1=first.getContext('2d');c1.imageSmoothingEnabled=true;c1.imageSmoothingQuality='high';
-   c1.drawImage(heroSrc,sx,sy,sW,sH,0,0,nw,nh);
-   src=first;sw=nw;sh=nh;}
+   if(_mipA.width!==nw||_mipA.height!==nh){_mipA.width=nw;_mipA.height=nh;}
+   const c1=_mipA.getContext('2d');c1.imageSmoothingEnabled=true;c1.imageSmoothingQuality='high';
+   c1.clearRect(0,0,nw,nh);c1.drawImage(heroSrc,sx,sy,sW,sH,0,0,nw,nh);
+   src=_mipA;sw=nw;sh=nh;}
   while(sw*0.5>cw){const nw=Math.round(sw*0.5),nh=Math.round(sh*0.5);
-    const keep=document.createElement('canvas');keep.width=nw;keep.height=nh;
-    const c2=keep.getContext('2d');c2.imageSmoothingEnabled=true;c2.imageSmoothingQuality='high';
-    c2.drawImage(src,0,0,sw,sh,0,0,nw,nh);
-    src=keep;sw=nw;sh=nh;}
+    const dst=(src===_mipA)?_mipB:_mipA;
+    if(dst.width!==nw||dst.height!==nh){dst.width=nw;dst.height=nh;}
+    const c2=dst.getContext('2d');c2.imageSmoothingEnabled=true;c2.imageSmoothingQuality='high';
+    c2.clearRect(0,0,nw,nh);c2.drawImage(src,0,0,sw,sh,0,0,nw,nh);
+    src=dst;sw=nw;sh=nh;}
   hv.imageSmoothingEnabled=true;hv.imageSmoothingQuality='high';
   hv.clearRect(0,0,cw,ch);
-  hv.drawImage(src,0,0,sw,sh,0,0,cw,ch);}
+  hv.drawImage(src,0,0,sw,sh,0,0,cw,ch);
+  }catch(e){ // any sizing race falls back to a direct 1:1 copy rather than a dead screen
+    try{if(hero.width!==W){hero.width=W;hero.height=H;}
+        hv.clearRect(0,0,W,H);hv.drawImage(heroSrc,0,0);}catch(_){}}}
 let W=0,H=0,off,ox,cutAssets={},pat={},fabPix={},microPix={};
 let state={fabric:FABRICS[0].code,style:"2-button",lapel:"Notch",chest:OPTS.chestPocket[0]?.code,lower:OPTS.lowerPocket[0]?.code,
   vent:OPTS.vent[0]?.code,button:OPTS.buttons[0]?.code,lining:OPTS.linings[0]?.code,
@@ -731,6 +737,17 @@ function boxBlur(src,w,h,r){if(r<=0)return src.slice();const t=new Float32Array(
   return o;}
 function buildWarpNormal(nimg,alpha){const nc=document.createElement('canvas');nc.width=W;nc.height=H;
   const nxc=nc.getContext('2d');nxc.drawImage(nimg,0,0,W,H);const g=nxc.getImageData(0,0,W,H).data;
+  // MEMORY (2026-07-23): with the pattern warp dead (WARP_AMP_N=0, SIL_WRAP=0) the dispX/dispY
+  // fields are all-zero — yet they retained 27 MB of Float32 per cut-view, 273 MB across ten,
+  // which is exactly the kind of load iOS Safari kills a tab for. When the warp is off, skip
+  // every field entirely and store graze quantised to a byte (the sheen is a broad soft term;
+  // 1/255 steps are far below anything visible). dispX/dispY are null and the sampler guards.
+  if(WARP_AMP_N===0&&SIL_WRAP===0){
+    const graze=new Uint8Array(W*H);
+    for(let i=0;i<W*H;i++){if(!alpha[i])continue;const nz=Math.min(1,Math.abs(g[i*4+2]/127.5-1));
+      graze[i]=(Math.pow(1-nz,SHEEN_POW)*255)|0;}
+    nc.width=nc.height=1;
+    return {dispX:null,dispY:null,alpha,graze,g8:true};}
   const sx=new Float32Array(W*H),sy=new Float32Array(W*H);
   for(let i=0;i<W*H;i++){if(!alpha[i])continue;const nx=g[i*4]/127.5-1,ny=g[i*4+1]/127.5-1,nz=Math.max(Math.abs(g[i*4+2]/127.5-1),NZ_MIN);sx[i]=nx/nz;sy[i]=ny/nz;}
   const bx=boxBlur(sx,W,H,NSMOOTH),by=boxBlur(sy,W,H,NSMOOTH);const dispX=new Float32Array(W*H),dispY=new Float32Array(W*H);
@@ -908,7 +925,7 @@ function warpedCloth(cutId,code){const A=cutAssets[cutId],{dispX,dispY,alpha,gra
     // the seam phase. A rotation and a non-linear horizontal remap do not commute; rotating
     // first, or leaving the anchor unmapped, measured 16-18 sRGB levels of lapel error and up to
     // 4.7 deg of grain divergence.
-    const p=panel[i];let wx=x+dispX[i];const wy=y+dispY[i];let dUdx=1;
+    const p=panel[i];let wx=dispX?x+dispX[i]:x;const wy=dispY?y+dispY[i]:y;let dUdx=1;
     if(UNWRAP_AMP!==0){const cr=cylFor(cy,p,x,y);
       if(cr){const t=(x-cr[0])/cr[1];
         wx=wx+UNWRAP_AMP*(cr[0]+cr[1]*arcLen(t)+(cr[2]||0)-x);
@@ -923,8 +940,8 @@ function warpedCloth(cutId,code){const A=cutAssets[cutId],{dispX,dispY,alpha,gra
     // as a gradient. Measured: edge pixels are 1.3-1.8% of the garment but their footprint ran
     // to 37.7 texels (18.8 canvas px = 70% of a stripe pitch) against an interior max of 3.31,
     // and 100% of all fp>4 pixels on every view were edge pixels — a faint ghosted rim.
-    const gx=(i%W<W-1&&alpha[i+1])?Math.abs(dispX[i+1]-dispX[i]):0,
-          gy=(i>=W&&alpha[i-W])?Math.abs(dispY[i]-dispY[i-W]):0;
+    const gx=(dispX&&i%W<W-1&&alpha[i+1])?Math.abs(dispX[i+1]-dispX[i]):0,
+          gy=(dispY&&i>=W&&alpha[i-W])?Math.abs(dispY[i]-dispY[i-W]):0;
     // ANISOTROPIC footprint: under 1.43x horizontal compression an isotropic filter drops
     // samples/texel from 1.5 to 1.05, below the builder's own documented safe floor.
     const fp=dens*FOOT*(1+2*(gx+gy)),fpx=fp*dUdx,fpy=fp;
@@ -939,7 +956,7 @@ function warpedCloth(cutId,code){const A=cutAssets[cutId],{dispX,dispY,alpha,gra
     const n=SS*SS;const R=rl/n,G=gl/n,B=bl/n;
     od[i*4]=lin2srgb(R);od[i*4+1]=lin2srgb(G);od[i*4+2]=lin2srgb(B);od[i*4+3]=255;
     // --- sheen: luminance of the cloth, weighted to grazing angles, modulated by weave micro-normal ---
-    let gz=graze[i];
+    let gz=A.warp.g8?graze[i]/255:graze[i];
     if(MN){let mx=cx%tw;if(mx<0)mx+=tw;let my=cy2%th;if(my<0)my+=th;
       const mp=((my|0)*tw+(mx|0))*4;const tilt=(MN[mp]/127.5-1)*0.5+(MN[mp+1]/127.5-1)*0.5;
       gz*=(1+GLINT*tilt);}
@@ -970,6 +987,7 @@ function render(){const {cut,approx}=resolveCut();
   ox.globalCompositeOperation='source-over';
   hx.globalCompositeOperation='lighter';hx.drawImage(off,0,0);hx.globalCompositeOperation='source-over';
   const ap=document.getElementById('approx');if(ap)ap.textContent=approx?('Preview shows the nearest rendered lapel — made with your '+state.lapel+' lapel.'):'';
+  presentHero();   // the composite lives offscreen; without this the screen never updates
   updateChrome();}
 // ---- UI: stage + right rail. Three tabs; every option group lives under Style. ----
 const SECTIONS=[{key:'fabric',label:'Fabric'},{key:'style',label:'Style'},{key:'measure',label:'Measurements'}];
@@ -1176,7 +1194,7 @@ async function loadShopifyFabrics(){
         price2pc:Math.round(parseFloat(two.price||'575')),priceVest:vest?Math.round(parseFloat(vest.price)):200};
     }).filter(f=>f.code&&f.tile);
     return fabs.length?fabs:null;
-  }catch(e){return null;}  presentHero();
+  }catch(e){return null;}
 }
 (async function(){ if(onShopify()){const sf=await loadShopifyFabrics(); if(sf){FABRICS=sf; state.fabric=sf[0].code;}} init(); })();
 </script>
@@ -1229,6 +1247,21 @@ open(OUT, "w").write(html)
 print(f"canvas {W}x{H} (full frame {W}x{H_FULL}, cropped to top {CROP_FRAC:.0%}); "
       f"px-scale constants x{RSCALE:.3f}; {os.path.getsize(OUT)/1048576:.2f} MB")
 print("wrote", OUT, f"({os.path.getsize(OUT)/1024/1024:.2f} MB)")
+
+# SYNTAX GATE (2026-07-23): a stray edit once produced a build whose single 7 MB <script> failed
+# to parse — the page loaded, looked alive, and every interaction was dead, with nothing in the
+# console. node --check catches that class entirely; a build that cannot parse must not ship.
+import re as _re, subprocess as _sp, tempfile as _tf, shutil as _sh
+if _sh.which("node"):
+    _m = _re.search(r"<script>(.*)</script>", open(OUT).read(), _re.S)
+    if _m:
+        with _tf.NamedTemporaryFile("w", suffix=".js", delete=False) as _f:
+            _f.write(_m.group(1)); _js = _f.name
+        _r = _sp.run(["node", "--check", _js], capture_output=True, text=True)
+        os.unlink(_js)
+        if _r.returncode != 0:
+            raise SystemExit("BUILD FAILED node --check:\n" + _r.stderr[:800])
+        print("js syntax: OK (node --check)")
 
 # ---------------------------------------------------------------- SPLIT BUILD (Shopify embed)
 # Same code, three files instead of one. Shopify's CDN re-encodes anything it sniffs as an image
