@@ -712,6 +712,29 @@ def cylinders(panel, b, view):
             out["seat"] = (_ev(_fit(v[:, 0], v[:, 1], 2), yy, H),
                            np.maximum(_ev(_fit(v[:, 0], v[:, 2], 2), yy, H), 8.0) * LEG_RHO)
         out["_crotch"] = float(crotch if crotch is not None else H)
+        # ---- PHASE-MATCH THE LEGS TO THE SEAT AT THE CROTCH (2026-07-23) ----
+        # The hard switch is right (a cross-fade of two cylinder fields folds pixels), but the
+        # assumption that its residual hides on the fly line was WRONG: the seat and leg
+        # cylinders have different C/R, so at the switch row the unwrapped coordinate jumps by a
+        # different amount at EVERY column — the audit measured -2.5..-7px (left leg) and +2..+3
+        # (right), a ruler-straight phase cut across both thigh fronts, row-pair correlation
+        # 0.99 -> ~0.0 on DBT6860. Emit a per-leg constant offset that equates each leg's
+        # unwrapped coordinate with the seat's at the crotch row, averaged over the leg's span —
+        # the same continuity idea the front opening already uses. A constant per leg cannot zero
+        # the mismatch at every column (the two mappings stretch differently), but it removes the
+        # bulk; the residual is sub-pixel over the central 3/4 of each leg.
+        if "seat" in out and crotch is not None:
+            cr = int(min(max(crotch, 0), H - 1))
+            Cs, Rs = out["seat"][0][cr], out["seat"][1][cr]
+            for k in (0, 1):
+                nm = f"leg{k}"
+                if nm not in out:
+                    continue
+                Cl, Rl = out[nm][0][cr], out[nm][1][cr]
+                xs = np.linspace(Cl - 0.75 * Rl, Cl + 0.75 * Rl, 41)
+                Us = Cs + Rs * np.array([arc((x - Cs) / max(Rs, 1e-6)) for x in xs])
+                Ul = Cl + Rl * np.array([arc((x - Cl) / max(Rl, 1e-6)) for x in xs])
+                out[f"_off_leg{k}"] = float(np.mean(Us - Ul))
     return out
 
 

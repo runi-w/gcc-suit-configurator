@@ -231,8 +231,12 @@ def on_stage(im):
     bg = near & (_np.asarray(reach).astype(_np.float32) > 110)
     # --- feather, then map the sweep onto the stage colour MULTIPLICATIVELY so the
     #     floor shadow keeps its gradient instead of flattening to a flat fill ---
-    soft = _np.asarray(Image.fromarray((bg * 255).astype("uint8"))
-                       .filter(_IF.GaussianBlur(1.0)), _np.float32)[..., None] / 255.0
+    # consolidate before feathering (2026-07-23): at the soft edge of the contact shadow the
+    # near-test dithers px-by-px, and that dither survived as a gritty speckle trail beside the
+    # shoes. Close the holes, then feather wider so the boundary is a gradient, not a coin-flip.
+    _bgim = Image.fromarray((bg * 255).astype("uint8"))
+    _bgim = _bgim.filter(_IF.MaxFilter(3)).filter(_IF.MinFilter(3))
+    soft = _np.asarray(_bgim.filter(_IF.GaussianBlur(2.5)), _np.float32)[..., None] / 255.0
     # FLAT fill, not the old multiplicative map. The multiply preserved the sweep's own vignette,
     # which is what printed the mat frame; and it preserved a floor shadow that measured only 6.4
     # levels (2.9%) below the far background — invisible, so the figure floated. Lay a flat
@@ -341,9 +345,14 @@ for cid, fn, openf in CUTS:
         # ~9 MB a full-resolution displacement field would cost.
         _cyl = cylinders(pmap, _np.asarray(_fit(A).convert("L")) > 127, view)
         cyl = {"step": CYL_STEP, "crotch": round(_cyl.pop("_crotch", H), 1)}
+        # per-leg phase offsets: equate each leg's unwrapped coordinate with the seat's at the
+        # crotch row (panels.cylinders), so the seat->legs switch no longer cuts the pattern
+        _offs = {k: _cyl.pop(k) for k in list(_cyl) if k.startswith("_off_")}
         for _nm, (_C, _R) in _cyl.items():
             cyl[_nm] = {"c": [round(float(v), 1) for v in _C[::CYL_STEP]],
                         "r": [round(float(v), 1) for v in _R[::CYL_STEP]]}
+            # (_offs retained for diagnostics; the runtime now computes the per-column
+            # continuity field itself in buildLegDeltas — a scalar was not enough)
         # openFront (front-opening seam/lapel break) is a FRONT-view property only
         cuts.append({"id": f"{cid}__{view}", "base": ub, "drape": ud, "mask": um, "normal": un,
                      "panel": up,
@@ -755,8 +764,9 @@ async function addCut(c){
       // The rotation anchor has to live in the SAME space the rotation now operates in, so map
       // it through the unwrap too. Leaving it unmapped slides the pattern within the panel.
       if(UNWRAP_AMP!==0&&c.cyl){const cr=cylFor(c.cyl,p,a[0],a[1]);
-        if(cr)pax[p]=a[0]+UNWRAP_AMP*(cr[0]+cr[1]*arcLen((a[0]-cr[0])/cr[1])-a[0]);}}
+        if(cr)pax[p]=a[0]+UNWRAP_AMP*(cr[0]+cr[1]*arcLen((a[0]-cr[0])/cr[1])+(cr[2]||0)-a[0]);}}
     const _panel=buildPanels(pimg);
+    buildLegDeltas(c.cyl);
     cutAssets[c.id]={base:b,drapeLA:dc,warp,pct,pst,pax,pay,cyl:c.cyl,
       panel:_panel,
       seam:c.openFront?buildSeamPhase(warp.alpha,_panel):new Uint8Array(W*H)};}}
@@ -791,8 +801,27 @@ function cylFor(cy,p,x,y){const nm=PANEL_CYL[p];if(!nm)return null;
   if(nm!=='trouser')return cylAt(cy,nm,y);
   if(y<cy.crotch){const s=cylAt(cy,'seat',y);if(s)return s;}
   const a=cylAt(cy,'leg0',y),b=cylAt(cy,'leg1',y);
-  if(a&&b)return (x<(a[0]+b[0])*0.5)?a:b;
-  return a||b||cylAt(cy,'seat',y);}
+  // CROTCH PHASE CONTINUITY (2026-07-23): the seat->legs switch changes C/R, so the unwrapped
+  // coordinate jumps by a different amount at every column — a ruler-straight phase cut across
+  // both thighs (row-pair corr 0.99 -> ~0.0 on DBT6860; audit blocker). Add the per-column delta
+  // between the seat's and the leg's unwrap AT the crotch row (precomputed in buildLegDeltas),
+  // so the pattern is exactly continuous across the switch at every x. The delta is constant in
+  // y, so within each leg the pattern stays rigid — it only re-phases the whole leg to meet the
+  // seat. A constant-per-leg version was tried first and left +-2-3px of residual: not enough.
+  let use=null;
+  if(a&&b)use=(x<(a[0]+b[0])*0.5)?[a,0]:[b,1];
+  else if(a)use=[a,0];else if(b)use=[b,1];
+  if(use){const d=cy['_d'+use[1]];return [use[0][0],use[0][1],d?d[x|0]:0];}
+  return cylAt(cy,'seat',y);}
+function buildLegDeltas(cy){if(!cy||!cy.crotch||!cy.seat)return;
+  const yc=cy.crotch-1,s=cylAt(cy,'seat',yc);if(!s)return;
+  for(const k of [0,1]){const L=cylAt(cy,'leg'+k,cy.crotch);if(!L)continue;
+    const d=new Float32Array(W);
+    for(let x=0;x<W;x++){
+      const Us=s[0]+s[1]*arcLen((x-s[0])/s[1]);
+      const Ul=L[0]+L[1]*arcLen((x-L[0])/L[1]);
+      d[x]=Us-Ul;}
+    cy['_d'+k]=d;}}
 function warpedCloth(cutId,code){const A=cutAssets[cutId],{dispX,dispY,alpha,graze}=A.warp,
   seam=A.seam,panel=A.panel,pct=A.pct,pst=A.pst,pax=A.pax,pay=A.pay,cy=A.cyl,
   T=fabPix[code],tw=T.w,th=T.h,td=T.d;
@@ -818,7 +847,7 @@ function warpedCloth(cutId,code){const A=cutAssets[cutId],{dispX,dispY,alpha,gra
     const p=panel[i];let wx=x+dispX[i];const wy=y+dispY[i];let dUdx=1;
     if(UNWRAP_AMP!==0){const cr=cylFor(cy,p,x,y);
       if(cr){const t=(x-cr[0])/cr[1];
-        wx=wx+UNWRAP_AMP*(cr[0]+cr[1]*arcLen(t)-x);
+        wx=wx+UNWRAP_AMP*(cr[0]+cr[1]*arcLen(t)+(cr[2]||0)-x);
         dUdx=1+UNWRAP_AMP*(arcSlope(t)-1);}}
     let cxx,cyy;
     if(PANEL_ANG[p]===0){cxx=wx*dens+oxx;cyy=wy*dens+oyy;}
