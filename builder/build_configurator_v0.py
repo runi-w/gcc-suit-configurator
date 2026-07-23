@@ -52,6 +52,10 @@ FAB_DIR = f"{HM}/fabric_build"
 # mechanism; judged by eye on chalk stripe and glen check, front and back, ruled-straight wins.
 # Solids are unaffected either way (8 of 17 cloths show no measurable change at any amplitude).
 WARP_AMP_MULT = 0.0
+# Arc-length unwrap: 1 = the cloth pattern follows the body's cylindrical form (real suit
+# photography), 0 = ruled flat. See the CYLINDRICAL UNWRAP block in builder/panels.py.
+UNWRAP_AMP = 1.0
+CYL_STEP   = 8          # row subsampling for the emitted C(y)/R(y) profiles
 SIL_WRAP   = 0.00       # silhouette-relative pattern wrap. VALIDATED on the torso: at 0.70 the
                         # four central bands order correctly (-7.2 -4.5 -0.2 +3.7) where before they
                         # were noise. DISABLED because hw[y] spans the whole row, so the SLEEVES --
@@ -101,7 +105,8 @@ import numpy as _np
 from PIL import ImageFilter as _IF
 import sys as _sys
 _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from panels import segment, anchors, N_PANELS, PANEL_ANGLES   # Path A per-panel grain
+from panels import (segment, anchors, cylinders, N_PANELS, PANEL_ANGLES,
+                    PANEL_CYL, NZ_FLOOR)   # Path A per-panel grain + unwrap
 # Match Suitsupply's measured shading statistics (navy jacket body layer, 2026-07-21):
 #   broad-shading std 0.049, fold-band std 0.042, fold/broad ratio 0.86 -> a pressed,
 #   softly-lit suit. Our raw drape map measured 0.092/0.111 (2.6x harsher folds).
@@ -269,11 +274,21 @@ for cid, fn, openf in CUTS:
                             view, PX_PER_CM)
         anc = anchors(pmap, plm)
         up = datauri(Image.fromarray(pmap), "PNG", optimize=True)
+        # CYLINDER PROFILES for the arc-length unwrap (panels.cylinders). Subsampled every
+        # CYL_STEP rows and lerped at runtime: C(y)/R(y) are low-order polynomial fits, so this
+        # is lossless in practice and keeps the payload at ~13 KB per cut-view instead of the
+        # ~9 MB a full-resolution displacement field would cost.
+        _cyl = cylinders(pmap, _np.asarray(_fit(A).convert("L")) > 127, view)
+        cyl = {"step": CYL_STEP, "crotch": round(_cyl.pop("_crotch", H), 1)}
+        for _nm, (_C, _R) in _cyl.items():
+            cyl[_nm] = {"c": [round(float(v), 1) for v in _C[::CYL_STEP]],
+                        "r": [round(float(v), 1) for v in _R[::CYL_STEP]]}
         # openFront (front-opening seam/lapel break) is a FRONT-view property only
         cuts.append({"id": f"{cid}__{view}", "base": ub, "drape": ud, "mask": um, "normal": un,
                      "panel": up,
                      "anchor": [[round(anc.get(p, (0, 0))[0], 1), round(anc.get(p, (0, 0))[1], 1)]
                                 for p in range(N_PANELS)],
+                     "cyl": cyl,
                      "openFront": bool(openf and view == "front")})
         cutviews.setdefault(cid, []).append(view)
 print("  cut-views embedded: " + ", ".join(f"{k}[{'/'.join(v)}]" for k, v in cutviews.items()))
@@ -562,6 +577,21 @@ const SIL_WRAP=__SIL_WRAP__;   // how much the pattern follows the garment silho
 // where this table is defined and documented; it is emitted here so it ships with the compositor).
 // [none, torso-L, torso-R, lapel-L, lapel-R, sleeve-L, sleeve-R, collar, trouser]
 const PANEL_ANG=__PANEL_ANG__;
+// ARC-LENGTH UNWRAP. Real suit photography compresses the pattern toward each panel's silhouette
+// as the cloth turns away from camera; ruled-straight reads as a decal. The cloth coordinate
+// advances by arc length: dU/dx = 1/max(sqrt(1-t^2), NZ_FLOOR), t=(x-C)/R, whose exact integral
+// is asin() out to t=sqrt(1-F^2) and LINEAR beyond. See builder/panels.py for the derivation,
+// the measured target, and why t must NEVER be clipped to +-1.
+const PANEL_CYL=__PANEL_CYL__;      // panel id -> cylinder name (null = identity)
+const UNWRAP_AMP=__UNWRAP_AMP__;    // 0 => bit-identical to the ruled-flat build
+const NZ_FLOOR=__NZ_FLOOR__, ARC_TC=Math.sqrt(1-NZ_FLOOR*NZ_FLOOR), ARC_A0=Math.asin(ARC_TC);
+function arcLen(t){const a=t<0?-t:t,s=t<0?-1:1;
+  return s*(a<=ARC_TC?Math.asin(a):ARC_A0+(a-ARC_TC)/NZ_FLOOR);}
+function arcSlope(t){const a=t<0?-t:t;return a<=ARC_TC?1/Math.sqrt(1-a*a):1/NZ_FLOOR;}
+// C(y)/R(y) come subsampled every cyl.step rows; lerp (the profiles are low-order fits).
+function cylAt(cy,name,y){const o=cy&&cy[name];if(!o)return null;
+  const f=y/cy.step,i=f|0,n=o.c.length-1,i0=i<0?0:(i>n?n:i),i1=i0<n?i0+1:n,w=f-i0;
+  return [o.c[i0]+(o.c[i1]-o.c[i0])*w, o.r[i0]+(o.r[i1]-o.r[i0])*w];}
 const FOOT=__FOOT__;           // runtime sampling footprint, in units of dens texels
 const SHEEN_POW=1.6;           // how tightly the sheen hugs grazing angles
 const GLINT=0.55;              // how much the weave micro-normal modulates the sheen
@@ -645,8 +675,12 @@ async function addCut(c){
     const nP=PANEL_ANG.length,pct=new Float32Array(nP),pst=new Float32Array(nP),
           pax=new Float32Array(nP),pay=new Float32Array(nP);
     for(let p=0;p<nP;p++){const t=PANEL_ANG[p]*Math.PI/180;pct[p]=Math.cos(t);pst[p]=Math.sin(t);
-      const a=(c.anchor&&c.anchor[p])||[0,0];pax[p]=a[0];pay[p]=a[1];}
-    cutAssets[c.id]={base:b,drapeLA:dc,warp,pct,pst,pax,pay,
+      const a=(c.anchor&&c.anchor[p])||[0,0];pax[p]=a[0];pay[p]=a[1];
+      // The rotation anchor has to live in the SAME space the rotation now operates in, so map
+      // it through the unwrap too. Leaving it unmapped slides the pattern within the panel.
+      if(UNWRAP_AMP!==0&&c.cyl){const cr=cylFor(c.cyl,p,a[0],a[1]);
+        if(cr)pax[p]=a[0]+UNWRAP_AMP*(cr[0]+cr[1]*arcLen((a[0]-cr[0])/cr[1])-a[0]);}}
+    cutAssets[c.id]={base:b,drapeLA:dc,warp,pct,pst,pax,pay,cyl:c.cyl,
       panel:buildPanels(pimg),
       seam:c.openFront?buildSeamPhase(warp.alpha):new Uint8Array(W*H)};}}
 // LAZY SIDE/BACK. 10 of the 15 cut-views are side/back and most visitors never leave the front,
@@ -673,8 +707,17 @@ async function init(){
   buildDock();render();sizeHero();}
 let clothC,clothX;
 let sheenBuf=null;
+// Which cylinder a trouser pixel rides: one seat above the crotch, two legs below. HARD switch,
+// never a cross-fade -- a convex blend of two cylinder fields is non-monotone by construction and
+// folds the map. The residual is a phase break on the fly line, where a real trouser has a seam.
+function cylFor(cy,p,x,y){const nm=PANEL_CYL[p];if(!nm)return null;
+  if(nm!=='trouser')return cylAt(cy,nm,y);
+  if(y<cy.crotch){const s=cylAt(cy,'seat',y);if(s)return s;}
+  const a=cylAt(cy,'leg0',y),b=cylAt(cy,'leg1',y);
+  if(a&&b)return (x<(a[0]+b[0])*0.5)?a:b;
+  return a||b||cylAt(cy,'seat',y);}
 function warpedCloth(cutId,code){const A=cutAssets[cutId],{dispX,dispY,alpha,graze}=A.warp,
-  seam=A.seam,panel=A.panel,pct=A.pct,pst=A.pst,pax=A.pax,pay=A.pay,
+  seam=A.seam,panel=A.panel,pct=A.pct,pst=A.pst,pax=A.pax,pay=A.pay,cy=A.cyl,
   T=fabPix[code],tw=T.w,th=T.h,td=T.d;
   const MN=microPix[code]||null,fdef=FABRICS.find(f=>f.code===code)||{},sheenAmt=(fdef.sheen!=null?fdef.sheen:0.14),sheenLum=(fdef.meanLum!=null?fdef.meanLum:0.18);
   if(!sheenBuf||sheenBuf.length!==W*H)sheenBuf=new Float32Array(W*H);
@@ -691,19 +734,32 @@ function warpedCloth(cutId,code){const A=cutAssets[cutId],{dispX,dispY,alpha,gra
     // the armhole at chest height, the one line the spec says a sleeve must match the body on).
     // A rigid coordinate rotation carries whatever is in the tile, so a check's two axes turn
     // together automatically; no separate 2D-pattern path is needed.
-    const p=panel[i],wx=x+dispX[i],wy=y+dispY[i];let cx,cy;
-    if(PANEL_ANG[p]===0){cx=wx*dens+oxx;cy=wy*dens+oyy;}
+    // ORDER MATTERS: unwrap, THEN rotate about the anchor mapped through the same unwrap, THEN
+    // the seam phase. A rotation and a non-linear horizontal remap do not commute; rotating
+    // first, or leaving the anchor unmapped, measured 16-18 sRGB levels of lapel error and up to
+    // 4.7 deg of grain divergence.
+    const p=panel[i];let wx=x+dispX[i];const wy=y+dispY[i];let dUdx=1;
+    if(UNWRAP_AMP!==0){const cr=cylFor(cy,p,x,y);
+      if(cr){const t=(x-cr[0])/cr[1];
+        wx=wx+UNWRAP_AMP*(cr[0]+cr[1]*arcLen(t)-x);
+        dUdx=1+UNWRAP_AMP*(arcSlope(t)-1);}}
+    let cxx,cyy;
+    if(PANEL_ANG[p]===0){cxx=wx*dens+oxx;cyy=wy*dens+oyy;}
     else{const ax=pax[p],ay=pay[p],rx=wx-ax,ry=wy-ay,ct=pct[p],st=pst[p];
-      cx=(ax+rx*ct+ry*st)*dens+oxx;cy=(ay-rx*st+ry*ct)*dens+oyy;}
+      cxx=(ax+rx*ct+ry*st)*dens+oxx;cyy=(ay-rx*st+ry*ct)*dens+oyy;}
+    const cx=cxx,cy2=cyy;
     // gx/gy must only look at neighbours that are ALSO garment: buildWarpNormal writes disp
     // only inside the mask, so an ungated read at the silhouette treats the full displacement
     // as a gradient. Measured: edge pixels are 1.3-1.8% of the garment but their footprint ran
     // to 37.7 texels (18.8 canvas px = 70% of a stripe pitch) against an interior max of 3.31,
     // and 100% of all fp>4 pixels on every view were edge pixels — a faint ghosted rim.
     const gx=(i%W<W-1&&alpha[i+1])?Math.abs(dispX[i+1]-dispX[i]):0,
-          gy=(i>=W&&alpha[i-W])?Math.abs(dispY[i]-dispY[i-W]):0;const fp=dens*FOOT*(1+2*(gx+gy));
+          gy=(i>=W&&alpha[i-W])?Math.abs(dispY[i]-dispY[i-W]):0;
+    // ANISOTROPIC footprint: under 1.43x horizontal compression an isotropic filter drops
+    // samples/texel from 1.5 to 1.05, below the builder's own documented safe floor.
+    const fp=dens*FOOT*(1+2*(gx+gy)),fpx=fp*dUdx,fpy=fp;
     let rl=0,gl=0,bl=0;
-    for(let sj=0;sj<SS;sj++)for(let si=0;si<SS;si++){const sx=cx+((si+0.5)/SS-0.5)*fp,sy=cy+((sj+0.5)/SS-0.5)*fp;
+    for(let sj=0;sj<SS;sj++)for(let si=0;si<SS;si++){const sx=cx+((si+0.5)/SS-0.5)*fpx,sy=cy2+((sj+0.5)/SS-0.5)*fpy;
       let fx=sx%tw;if(fx<0)fx+=tw;let fy=sy%th;if(fy<0)fy+=th;
       const x0=fx|0,y0=fy|0,x1=(x0+1)%tw,y1=(y0+1)%th,ax=fx-x0,ay=fy-y0;
       const p00=(y0*tw+x0)*4,p10=(y0*tw+x1)*4,p01=(y1*tw+x0)*4,p11=(y1*tw+x1)*4;let t,b2;
@@ -714,7 +770,7 @@ function warpedCloth(cutId,code){const A=cutAssets[cutId],{dispX,dispY,alpha,gra
     od[i*4]=lin2srgb(R);od[i*4+1]=lin2srgb(G);od[i*4+2]=lin2srgb(B);od[i*4+3]=255;
     // --- sheen: luminance of the cloth, weighted to grazing angles, modulated by weave micro-normal ---
     let gz=graze[i];
-    if(MN){let mx=cx%tw;if(mx<0)mx+=tw;let my=cy%th;if(my<0)my+=th;
+    if(MN){let mx=cx%tw;if(mx<0)mx+=tw;let my=cy2%th;if(my<0)my+=th;
       const mp=((my|0)*tw+(mx|0))*4;const tilt=(MN[mp]/127.5-1)*0.5+(MN[mp+1]/127.5-1)*0.5;
       gz*=(1+GLINT*tilt);}
     sheenBuf[i]=sheenLum*gz*sheenAmt;}   // FLAT tint: per-pixel luminance would amplify stripes/checks
@@ -964,6 +1020,9 @@ html = (HTML.replace("__CUTVIEWS__", json.dumps(cutviews))
             .replace("__FOOT__", f"{FOOTPRINT:.2f}")
             .replace("__SIL_WRAP__", f"{SIL_WRAP:.2f}")
             .replace("__PANEL_ANG__", json.dumps(PANEL_ANGLES))
+            .replace("__PANEL_CYL__", json.dumps([PANEL_CYL.get(i) for i in range(N_PANELS)]))
+            .replace("__UNWRAP_AMP__", f"{UNWRAP_AMP:.2f}")
+            .replace("__NZ_FLOOR__", f"{NZ_FLOOR:.3f}")
             .replace("__STAGE__", "#%02x%02x%02x" % STAGE_RGB)
             .replace("__WARP_AMP__", f"{WARP_AMP_MULT * RSCALE:.2f}")
             .replace("__NSMOOTH__", str(max(1, round(12 * RSCALE))))
@@ -985,6 +1044,12 @@ def _fill(s, cuts_json):
              .replace("__FOOT__", f"{FOOTPRINT:.2f}")
              .replace("__SIL_WRAP__", f"{SIL_WRAP:.2f}")
              .replace("__PANEL_ANG__", json.dumps(PANEL_ANGLES))
+             .replace("__PANEL_CYL__", json.dumps([PANEL_CYL.get(i) for i in range(N_PANELS)]))
+             .replace("__UNWRAP_AMP__", f"{UNWRAP_AMP:.2f}")
+             .replace("__NZ_FLOOR__", f"{NZ_FLOOR:.3f}")
+            .replace("__PANEL_CYL__", json.dumps([PANEL_CYL.get(i) for i in range(N_PANELS)]))
+            .replace("__UNWRAP_AMP__", f"{UNWRAP_AMP:.2f}")
+            .replace("__NZ_FLOOR__", f"{NZ_FLOOR:.3f}")
              .replace("__STAGE__", "#%02x%02x%02x" % STAGE_RGB)
              .replace("__WARP_AMP__", f"{WARP_AMP_MULT * RSCALE:.2f}")
              .replace("__NSMOOTH__", str(max(1, round(12 * RSCALE))))

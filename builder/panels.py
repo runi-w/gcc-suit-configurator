@@ -471,3 +471,177 @@ if __name__ == "__main__":
             sheet.paste(im, (x, j * h)); x += im.width
     sheet.save(f"{OUT}/panels_qa.png")
     print(f"wrote {OUT}/panels_qa.png")
+
+
+# ==================================================================== CYLINDRICAL UNWRAP
+# Real suit photography does NOT show ruled-straight stripes: the pattern compresses toward each
+# panel's silhouette as the cloth turns away from camera. Measured on a Suitsupply chalk-stripe
+# photo, local stripe pitch falls monotonically to ~0.70 of its centre value by |d|/R = 0.75 and
+# then FLOORS (it does not go to zero at the edge, because the visible garment edge is a draped
+# panel edge, not the tangent point of a smooth body).
+#
+# So the cloth coordinate advances by ARC LENGTH along the surface, not by screen distance:
+#     dU/dx = 1 / max( sqrt(1 - ((x-C)/R)^2), F )
+# whose exact integral is asin() out to t = sqrt(1-F^2) and LINEAR beyond. F floors |nz|, which
+# bounds dU/dx at 1/F and removes the singularity at the silhouette.
+#
+# ⚠ NEVER CLIP t TO ±1. That is the obvious defensive move and it is a trap: it makes U CONSTANT
+# wherever a panel reaches past its own cylinder radius, i.e. dU/dx = 0 — the tile gets sampled at
+# a single column and the shoulder caps render as a horizontal smeared band. The linear branch
+# already bounds dU/dx, so letting |t| exceed 1 is both safe and the only monotone choice.
+#
+# This is the idea the disabled SIL_WRAP was reaching for. SIL_WRAP was rejected because it used
+# the WHOLE-ROW silhouette, so the sleeves — separate tubes with no background gap to the body in
+# this pose — were sheared as if they were the torso. Its own comment said it "needs per-panel
+# centre/width before it can be enabled". That is exactly what the panel map above now provides,
+# and SIL_WRAP was additionally only an affine taper, which can reproduce splay but never
+# intra-row compression.
+NZ_FLOOR      = 0.70   # floor on |nz| -> max compression 1/F = 1.43x
+TORSO_R_FRAC  = 0.70   # torso cylinder radius as a fraction of the FULL silhouette half-width.
+                       # NOT the torso panel's own half-width: the body continues behind the arms.
+                       # Three independent estimates cluster here — the arm/body drape crease
+                       # reads 0.644-0.730, a normal-map cylinder fit 0.69, and matching the
+                       # reference jacket's physical body half-width 0.64-0.67.
+TORSO_R_FRAC_SIDE = 1.00   # in profile BOTH torso edges are true silhouettes
+SLEEVE_RHO    = 1.00   # a sleeve's outer edge IS a silhouette on 100% of rows
+LEG_RHO       = 1.00
+DEG_CEN, DEG_R = 3, 3  # polynomial order for C(y) / R(y)
+TRIM_TOP, TRIM_BOT = 40, 25   # rows dropped from the FIT (still evaluated) at each panel end
+MIN_LEG_PX    = 18     # a trouser run narrower than this is an occluded sliver
+MIN_LEG_FRAC  = 0.28   # ...or narrower than this fraction of the row's whole trouser span
+LEG_PERSIST   = 12     # ...or not persisting this many rows. All three kill the side view's
+                       # far-leg ankle sliver, which otherwise extrapolates a 40-row support
+                       # over 600 rows and folds the map.
+
+
+def arc(t, F=NZ_FLOOR):
+    """Clamped arc length in units of R. Strictly increasing for ALL t — see the note above."""
+    tc = np.sqrt(max(1e-9, 1.0 - F * F))
+    a = np.abs(t)
+    return np.sign(t) * np.where(a <= tc, np.arcsin(np.minimum(a, tc)),
+                                 np.arcsin(tc) + (a - tc) / F)
+
+
+def _fit(rows, vals, deg):
+    ok = np.isfinite(vals)
+    if ok.sum() < deg + 2:
+        return None
+    return (np.polyfit(rows[ok], vals[ok], deg), float(rows[ok].min()), float(rows[ok].max()))
+
+
+def _ev(fit, yy, H):
+    """Evaluate with the row argument CLAMPED to the fit interval. Extrapolating a cubic past the
+    shoulder was measured as the single biggest source of injected tilt (3.9-4.2% of front-torso
+    pixels over 10 deg before this clamp, ~0 after)."""
+    if fit is None:
+        return np.full(H, np.nan)
+    p, y0, y1 = fit
+    return np.polyval(p, np.clip(yy, y0, y1))
+
+
+def _runs_row(row, minpx):
+    d = np.diff(np.concatenate(([0], row.view(np.int8), [0])))
+    return [(a, b) for a, b in zip(np.flatnonzero(d == 1), np.flatnonzero(d == -1) - 1)
+            if b - a >= minpx]
+
+
+def cylinders(panel, b, view):
+    """Per-cylinder projected axis C(y) and radius R(y), in canvas px, one entry per row.
+
+    Returns {name: (C, R)} plus PANEL_CYL mapping panel ids onto those names. Profiles come from
+    a low-order FIT over the panel interior, never from per-row extents: a per-row min/max is
+    invalid the moment a panel is multi-run (true on ~10% of torso rows and most trouser rows),
+    where one stray pixel swings the measured centre by tens of px and injects a huge false tilt.
+    Boxcar smoothing does not fix that — it turns a one-row tear into a multi-row S-bend.
+    """
+    H, W = panel.shape
+    yy = np.arange(H, dtype=np.float64)
+    out = {}
+
+    # ---- TORSO: both halves plus the lapels ride ONE body cylinder. The front-opening phase
+    # break is SEAM_PHASE's job, not the geometry's.
+    mt = np.isin(panel, [TORSO_L, TORSO_R, LAPEL_L, LAPEL_R])
+    rows = np.flatnonzero(mt.sum(1) > 25).astype(float)
+    if len(rows) > 80:
+        cen = np.array([np.flatnonzero(mt[int(y)]).mean() for y in rows])
+        shw = np.array([(lambda z: (z[-1] - z[0]) / 2.0 if len(z) > 4 else np.nan)
+                        (np.flatnonzero(b[int(y)])) for y in rows])
+        inn = (rows > rows[0] + TRIM_TOP) & (rows < rows[-1] - TRIM_BOT)
+        if inn.sum() > DEG_R + 2:
+            frac = TORSO_R_FRAC_SIDE if view == "side" else TORSO_R_FRAC
+            C = _ev(_fit(rows[inn], cen[inn], DEG_CEN), yy, H)
+            R = np.maximum(_ev(_fit(rows[inn], shw[inn] * frac, DEG_R), yy, H), 20.0)
+            out["torso"] = (C, R)
+
+    # ---- SLEEVES: each anchored on its OWN outer silhouette edge. This is the whole reason
+    # SIL_WRAP failed; with per-sleeve geometry the sleeve displacement p95 drops from 52.5 px
+    # (197% of a stripe period) to 7.0 px (26%).
+    for pid, side, name in ((SLEEVE_L, "L", "sleeveL"), (SLEEVE_R, "R", "sleeveR")):
+        m = panel == pid
+        rws = np.flatnonzero(m.sum(1) > 25).astype(float)
+        if len(rws) < 60:
+            continue
+        edge, half = [], []
+        for y in rws:
+            rr = _runs_row(m[int(y)], 6)
+            if not rr:
+                edge.append(np.nan); half.append(np.nan); continue
+            a, c = max(rr, key=lambda r: r[1] - r[0])          # largest run, never min/max
+            edge.append(a if side == "L" else c); half.append((c - a) / 2.0)
+        edge = np.array(edge, float); half = np.array(half, float)
+        inn = (rws > rws[0] + 30) & (rws < rws[-1] - 30)
+        if inn.sum() < 8:
+            continue
+        Xo = _ev(_fit(rws[inn], edge[inn], 4), yy, H)
+        Rs = np.maximum(_ev(_fit(rws[inn], half[inn], 4), yy, H), 8.0) * SLEEVE_RHO
+        out[name] = (Xo + (Rs if side == "L" else -Rs), Rs)
+
+    # ---- TROUSER: one seat cylinder above the crotch, two leg cylinders below. HARD switch at
+    # the crotch, never a cross-fade — a convex blend of two different cylinder fields is
+    # non-monotone by construction (measured: 108 folded pixels, a 178.9 deg lean). The residual
+    # is a phase break on the fly line, which is where a real trouser has a seam anyway.
+    mtr = panel == TROUSER
+    if mtr.any():
+        legs, seat, run2 = {0: [], 1: []}, [], 0
+        crotch = None
+        for y in range(H):
+            if not mtr[y].any():
+                continue
+            span = np.flatnonzero(mtr[y])
+            total = span[-1] - span[0]
+            rr = [r for r in _runs_row(mtr[y], MIN_LEG_PX)
+                  if (r[1] - r[0]) >= MIN_LEG_FRAC * max(total, 1)]
+            if len(rr) >= 2:
+                run2 += 1
+                if crotch is None and run2 >= LEG_PERSIST:
+                    crotch = y - LEG_PERSIST + 1
+                rr = sorted(sorted(rr, key=lambda r: r[1] - r[0])[-2:])
+                for k, (a, c) in enumerate(rr):
+                    legs[k].append((y, (a + c) / 2.0, (c - a) / 2.0))
+            else:
+                run2 = 0
+                if rr:
+                    a, c = rr[0]
+                    seat.append((y, (a + c) / 2.0, (c - a) / 2.0))
+        for k in (0, 1):
+            v = np.array(legs[k], float)
+            if len(v) < 40:
+                continue
+            r = v[:, 0]
+            inn = (r > r[0] + 12) & (r < r[-1] - 12)
+            if inn.sum() < 20:
+                inn = np.ones(len(r), bool)
+            out[f"leg{k}"] = (_ev(_fit(r[inn], v[inn, 1], 2), yy, H),
+                              np.maximum(_ev(_fit(r[inn], v[inn, 2], 2), yy, H), 8.0) * LEG_RHO)
+        if len(seat) >= 20:
+            v = np.array(seat, float)
+            out["seat"] = (_ev(_fit(v[:, 0], v[:, 1], 2), yy, H),
+                           np.maximum(_ev(_fit(v[:, 0], v[:, 2], 2), yy, H), 8.0) * LEG_RHO)
+        out["_crotch"] = float(crotch if crotch is not None else H)
+    return out
+
+
+# panel id -> cylinder name. COLLAR is identity: it is tiny, near the neck, and already carries a
+# near-perpendicular Path A rotation.
+PANEL_CYL = {TORSO_L: "torso", TORSO_R: "torso", LAPEL_L: "torso", LAPEL_R: "torso",
+             SLEEVE_L: "sleeveL", SLEEVE_R: "sleeveR", TROUSER: "trouser", COLLAR: None}
