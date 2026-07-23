@@ -35,7 +35,7 @@ compositor now gives each tailoring panel its own cloth grain, on all 15 cut-vie
 - **Segmentation is BUILD-TIME, not runtime JS.** The panel map is *geometry*, and geometry in
   this codebase is already a per-cut-view build asset (mask/drape/normal) — the same split
   `plan/SS_RENDER_ARCHITECTURE_SPEC.md` S3 proved Suitsupply makes. Rides along as a greyscale
-  PNG: **+130 KB on the deliverable (10.87 → 11.00 MB), ~1.2%.** Measured against the
+  PNG: **+130 KB on the deliverable, ~1.2%.** Measured against the
   alternatives: packing it into the mask PNG's spare channels would have cost +201 KB.
 - **Mechanism = rigid rotation of the sampling coordinate about a per-panel anchor**
   (`u=(x·cosθ+y·sinθ)·dens, v=(−x·sinθ+y·cosθ)·dens`), exactly as the spec called for. The anchor
@@ -74,13 +74,45 @@ compositor now gives each tailoring panel its own cloth grain, on all 15 cut-vie
   rule that is right on front and back marks the front and back edges instead, which is simply
   wrong. Left as torso rather than encoding a wrong segmentation. This is the one place the shipped
   grain is knowingly incomplete (side views get lapel + collar, no sleeve lean).
-- **⚠ Found in passing, NOT fixed, worth doing next: the garment masks under-cover the jacket on
-  the side views.** Measured 3.2–9.5% of the jacket missing with runs up to 31 px, concentrated on
-  the shoulder/upper arm; front/back are 0.8–1.7%. Where the mask is 0 the compositor leaves the
-  BASE RENDER showing, so on any non-grey cloth it reads as a grey blotch on the shoulder — very
-  visible on the navy pinstripe. This is much bigger than the "2-3px soft sliver" §6 records as a
-  minor defect, and Session 3's shoulder-highlight reclaim was supposed to have fixed it. Now §6
-  item 2.
+
+### ⭐⭐ Session 5 (same day) — the side/back shoulder blotch FIXED, and the diagnosis was wrong twice
+
+Found while verifying Path A on a navy pinstripe: the garment masks were leaving a broad ragged
+band of the shoulder and upper arm OUTSIDE the mask, so the compositor left the grey BASE RENDER
+showing there. Invisible on the grey house cloth, glaring on any coloured one. Recorded until now
+as a "2-3px soft sliver … (natural)" minor defect; measured at **3.2–9.5% of the jacket on side
+views, runs up to 31 px** (front/back 0.8–1.7%).
+
+- **The standing diagnosis was wrong, and so was my first one.** Session 3's fix was a BRIGHT-
+  highlight reclaim, on the theory the shoulder cloth was too bright for the `V_MAX` ceiling. It
+  isn't: measured on `side_2button_notch`, the missing pixels read **V 0.29–0.61 (median 0.42) —
+  comfortably dark enough** — but **R−B +5..+13 (median +11)**, just over `BLUE_BIAS`=8. They are
+  warm-tinted cloth lit by the warm key, and **82% of them failed the old reclaim's `V >= 0.50`
+  floor**, which is why a reclaim aimed at exactly the right region never touched them.
+- **Fix: drop the V floor from that reclaim** (now `RECLAIM_*`, not `HILIGHT_*`) so it covers
+  mid-dark warm cloth as well as bright highlights. Deliberately NOT done by raising `BLUE_BIAS`,
+  which would loosen the classifier over the whole frame including where no garment is near; the
+  reclaim is gated to low-saturation pixels adjacent to *confident* garment and outside a 6 px
+  background margin. **Saturation is the real discriminator** — cloth 0.11, skin 0.24+, hair
+  0.31–0.43 (only ~1% of hair px pass, and the connected-blob step drops those).
+- **Second pass on the residue.** What survived was all *enclosed* interior holes failing only on
+  saturation (S 0.15–0.18 vs a 0.15 ceiling). Raised the ENCLOSED-hole fill's ceiling to 0.20
+  instead of loosening the edge-adjacent reclaim — enclosure is a far stronger guarantee than
+  adjacency, and **zero hair pixels are enclosed on any render** (hair opens to the background
+  above the head), so it cannot let hair in.
+- **Result, measured on all 15 cut-views:** missed px **122,420 → 71,441 (−42%)**; side views
+  **3.98/7.31/12.03/6.49/4.52% → 1.73/2.78/3.42/2.47/2.31%**; and the number that matters most,
+  **max run width on side views 37–52 px → 10–12 px** — the wide bands are gone and what remains
+  is the intended antialiased silhouette rim. **falseSkin 0 before and after; falseBackground
+  2423 → 2427** (noise). Confirmed by eye on all 15, not just by the metric.
+- **Also: `make_mask` got ~4x faster.** PIL's `MaxFilter(31)` in the skin-bounce reclaim was 8 s a
+  render, ~85% of the whole mask build. Swapped for the file's own separable `_dilate` — verified
+  **bit-identical** and ~320x faster on the real image size.
+- **Knock-ons checked, both clean.** Drape maps regenerated for all 15 (Marigold normals did NOT
+  need it); coverage moved +0.00 to +0.42 pp. Colour re-measured with `audit/calib.py`: **97% of
+  the mill scan vs the 98% on record** — unchanged within noise, so `DRAPE_TARGET_MED` was left
+  alone rather than chased for a 1.3% suggestion. Path A angles re-measured after the mask change
+  (the segmentation reads the mask): lapel −17.3°, collar +86.7°, torso unmoved — no drift.
 
 ### ⭐⭐⭐ Session 4 (2026-07-22) — Path A research plan EXECUTED, grain spec delivered
 
@@ -373,28 +405,24 @@ python3 builder/build_configurator_v0.py                     # 5. build
    there explains why rendered ≈ table + 4° on the lapel. Only the two Elite pinstripes
    (DBT6860, DBU081A) have really been judged — worth a look on a check/windowpane, where the
    prediction is that both grid axes rotate together with no extra code.
-2. **Fix the side/back mask under-coverage** (found Session 5, measured, not fixed). 3.2–9.5% of
-   the jacket is outside the mask on side views, runs up to 31 px, on the shoulder/upper arm —
-   the base render shows through as a grey blotch on coloured cloth. `builder/make_mask.py`, then
-   regenerate drapes (`make_drape.py`) and rebuild; Marigold normals do NOT need regenerating.
-   Arguably the most visible defect in the deliverable right now.
-3. **Trim the deliverable size** — 11.00 MB is over the Shopify page budget. Lazy-load or
+2. **Trim the deliverable size** — 10.97 MB is over the Shopify page budget. Lazy-load or
    externally host the side/back render assets so the initial page stays light.
-4. **Shopify embed** — `themeFilesUpsert` onto theme 149240774843 → `pageCreate` (after #3).
-5. **Difficulty-routing bake fallback (`plan/RESEARCH_FINDINGS.md`)** — only if Path A quality is
+3. **Shopify embed** — `themeFilesUpsert` onto theme 149240774843 → `pageCreate` (after #2).
+4. **Difficulty-routing bake fallback (`plan/RESEARCH_FINDINGS.md`)** — only if Path A quality is
    judged insufficient: AI-bake the ~27–29 bold directional fabrics onto the STANDING render (run
    the validation gate first). Path A is preferred (one-time, all-fabrics, live) and is now built.
-6. **Batch all 117 fabrics** — UNBLOCKED (anchors frozen); spot-check outliers.
-7. **Register `orders/paid` webhook** + wire the backend.
+5. **Batch all 117 fabrics** — UNBLOCKED (anchors frozen); spot-check outliers.
+6. **Register `orders/paid` webhook** + wire the backend.
 
-**Minor known defects (noted, non-blocking):** deliverable size (11.00 MB, #3 above); the side
-view has no sleeve panel, so it gets lapel + collar grain but no sleeve lean (§2, deliberate).
-The "2-3px soft sliver at the shoulder silhouette edge" this list used to carry was **measured in
-Session 5 and is much worse than that** — promoted to #2 above.
+**Minor known defects (noted, non-blocking):** deliverable size (10.97 MB, #2 above); the side
+view has no sleeve panel, so it gets lapel + collar grain but no sleeve lean (§2, deliberate);
+a thin antialiased rim at the shoulder silhouette on side/back, which is the coverage ramp
+working as designed (the broad blotch that used to be filed here was real and is now fixed, §2).
 
 **DONE Session 5:** Path A implemented end-to-end — `builder/panels.py` segmenter + per-panel
 rotation in the compositor, shipped at lapel ±16 / sleeve ±5 / collar 87, no torso regression
-(0 leaked pixels). **DONE Session 4:** Path A research plan (R1-R4) executed — `plan/PATH_A_GRAIN_SPEC.md` delivered;
+(0 leaked pixels); side/back shoulder mask blotch diagnosed and FIXED (missed px −42%, side-view
+run width 37-52px → 10-12px), make_mask ~4x faster. **DONE Session 4:** Path A research plan (R1-R4) executed — `plan/PATH_A_GRAIN_SPEC.md` delivered;
 `audit/panel_angles.py` fixed (was silently wrong on flat/uniform regions). **DONE Session 3:** 14
 renders + consistent man across cuts, front/side/back views wired, mask hair/shoe/shoulder fixes,
 Path A prototype. **DONE Session 2:** pattern wrap (rejected as global), crease depth (compositor
