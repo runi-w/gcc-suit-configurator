@@ -64,14 +64,50 @@ DEBIAS = 1.0        # 0 = off (the pre-2026-07-23 behaviour), 1 = remove the ful
 # The caller passes debias=0 for side views; see the loop in this file's __main__ and the
 # regeneration snippet in HANDOVER.
 DEBIAS_SIDE = 0.0
+FEATHER_ROWS = 90   # rows over which the jacket correction fades out above the crotch
+
+
+def _crotch_row(m):
+    """First row where the garment mask becomes two stable runs = the legs separating.
+
+    Derived, never hardcoded: scanning down from 45% of mask height for the first row that has
+    exactly two runs and keeps them for 200 rows lands at 0.50-0.53 of mask height on all ten
+    front/back cut-views.
+    """
+    rows = np.flatnonzero(m.any(1))
+    if not len(rows):
+        return m.shape[0]
+    y0, y1 = int(rows[0]), int(rows[-1])
+    start = y0 + int(0.45 * (y1 - y0))
+    run = 0
+    for y in range(start, y1):
+        d = np.diff(np.concatenate(([0], m[y].view(np.int8), [0])))
+        n = len(np.flatnonzero(d == 1))
+        run = run + 1 if n == 2 else 0
+        if run >= 200:
+            return y - 199
+    return y1
 
 
 def _debias_lr(lum, m, amount=DEBIAS):
-    """Divide out a linear horizontal luminance ramp fitted inside the garment mask."""
+    """Divide out a linear horizontal luminance ramp fitted inside the JACKET only.
+
+    ⚠ JACKET ONLY (2026-07-23). Fitting one ramp over the whole garment was wrong: the trousers
+    are already clean — per-band (R-L)/median from shoulders to hem reads
+    +0.40 +0.36 +0.28 +0.23 | +0.03 -0.00 -0.05 -0.02 — so a whole-garment fit took the jacket's
+    bias and INJECTED it into the legs, leaving leg-to-leg medians 16-31 levels apart where the
+    source render differed by ~1. Fit and apply above the crotch, feathered to zero across it.
+    """
     if amount <= 0:
         return lum, 0.0
     h, w = lum.shape
-    ys, xs = np.nonzero(m)
+    cro = _crotch_row(m)
+    jm = m.copy()
+    jm[cro:] = False                       # fit on the jacket only
+    if jm.sum() < 5000:
+        jm = m
+        cro = h
+    ys, xs = np.nonzero(jm)
     v = lum[ys, xs]
     xn = (xs - xs.mean()) / max(xs.std(), 1e-6)
     # least squares v ~ a + b*xn ; b is the side-to-side bias in levels per sd of x
@@ -83,7 +119,13 @@ def _debias_lr(lum, m, amount=DEBIAS):
     # multiplicative, so black stays black and structural creases keep their depth — the same
     # reasoning as the exposure gain above
     corr = 1.0 / np.maximum(1.0 + amount * b * xg / mean, 0.35)
-    return lum * corr, b
+    # feather the correction out over FEATHER_ROWS above the crotch so the jacket/trouser
+    # handover is not a step
+    ramp = np.ones((h, 1), np.float64)
+    f0 = max(0, cro - FEATHER_ROWS)
+    ramp[f0:cro, 0] = np.linspace(1.0, 0.0, max(1, cro - f0))
+    ramp[cro:, 0] = 0.0
+    return lum * (1.0 + (corr - 1.0) * ramp), b
 
 
 def verify(cut):

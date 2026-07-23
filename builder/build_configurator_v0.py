@@ -63,12 +63,25 @@ SIL_WRAP   = 0.00       # silhouette-relative pattern wrap. VALIDATED on the tor
                         # sheared as if they were the torso, breaking the outer bands and adding 5deg
                         # of wobble. Needs per-panel centre/width (torso vs each sleeve) before it
                         # can be enabled. Target: swing 22.7deg, spread 16.7deg, monotonic.
-FOOTPRINT  = 0.55       # runtime filter width, in OVERSAMPLE texels. The tile is already
-                        # LANCZOS-prefiltered at bake time; a full-width (1.0) runtime box filters
-                        # it TWICE and cost 29% of the cloth's sharpness. 0.55 recovers it to 95%
-                        # of the true cloth measured at our px/cm, with no moire. Verified DBV196A.
-                        # already LANCZOS-prefiltered at bake time, so a full-width runtime
-                        # box filters it TWICE and costs sharpness. See notes at OVERSAMPLE.
+FOOTPRINT  = 1.15       # runtime filter width, in OVERSAMPLE texels.
+                        # ⚠ RAISED 0.55 -> 1.15 on 2026-07-23. The old value was justified as
+                        # "1.0 double-filters the already-prefiltered tile and cost 29% of the
+                        # cloth's sharpness" — but that 29% was measured against 0.55 ITSELF.
+                        # Measured against the TRUE cloth (our own 300 DPI scan resampled to
+                        # 8.81 px/cm), 0.55 is 16% HOT and 1.15 is -2%.
+                        # What that over-sharpening costs: a photograph is optically
+                        # band-limited and our render was not, so the chalk stripe's real
+                        # 1.725 mm bead folded about Nyquist into a hard 2.87 px dot rhythm
+                        # (the cloth's own period is 29.9 px) and every panel carried a
+                        # per-pixel grain carpet. Lag-1 vertical autocorrelation of the
+                        # high-passed cloth: ours 0.45-0.66, a real product photo 0.96.
+                        # Isolating the sampler (dens=2, SS=3, same tile, no warp/drape/sheen)
+                        # and sweeping FOOT alone: along-stripe modulation 11.28 (0.55) ->
+                        # 4.75 (1.15) against our own scan's 5.02; bead ratio 0.2755 -> 0.1373
+                        # against the scan's 0.1418; cross-stripe amplitude 98% of the cloth.
+                        # 1.10 is the floor if it reads too soft; below 1.00 the aliasing
+                        # returns. Raising OVERSAMPLE does NOT help — the canvas footprint is
+                        # FOOT px regardless of dens.
 OVERSAMPLE = 2          # tile baked at this multiple of on-screen size; PAT_DENSITY is emitted
                         # from it. samples/texel = SS/OVERSAMPLE; at 4 it was 0.75 (below Nyquist)
                         # and fine checks aliased into heavy moire. See FOOTPRINT above.
@@ -186,7 +199,14 @@ def soften_drape(L_img, mask=None):
 # rather than float. Connectivity comes from a low-res flood fill (so enclosed white — the
 # shirt, the pocket square — is never touched); the crisp edge comes from a full-res test.
 from PIL import ImageDraw as _ID
-STAGE_RGB = (245, 242, 236)          # must equal --stage in the CSS; injected below
+SHADOW_W, SHADOW_H = 1.55, 0.16   # contact-shadow ellipse, in units of the shoe span
+SHADOW_BLUR = 13.0
+SHADOW_STRENGTH = 0.16            # peak darkening of the stage under the soles
+# ⚠ NEUTRALISED 2026-07-23. Was (245,242,236) — warm. Measured against a real product page:
+# theirs is 239/239/239, dead neutral, edge to edge. Ours read 236/233/226 inner with a
+# 244/241/234 border, i.e. a warm cast AND a visible mat frame (a 4-level step at x=27 and a
+# 17-level step across the bottom two rows).
+STAGE_RGB = (239, 239, 239)          # must equal --stage in the CSS; injected below
 
 def on_stage(im):
     a = _np.asarray(im.convert("RGB")).astype(_np.float32)
@@ -209,9 +229,36 @@ def on_stage(im):
     #     floor shadow keeps its gradient instead of flattening to a flat fill ---
     soft = _np.asarray(Image.fromarray((bg * 255).astype("uint8"))
                        .filter(_IF.GaussianBlur(1.0)), _np.float32)[..., None] / 255.0
-    ratio = _np.array(STAGE_RGB, _np.float32) / 246.6
-    out = a * (1.0 - soft) + _np.clip(a * ratio, 0, 255) * soft
+    # FLAT fill, not the old multiplicative map. The multiply preserved the sweep's own vignette,
+    # which is what printed the mat frame; and it preserved a floor shadow that measured only 6.4
+    # levels (2.9%) below the far background — invisible, so the figure floated. Lay a flat
+    # neutral stage and put a real contact shadow back under the shoes.
+    flat = _np.broadcast_to(_np.array(STAGE_RGB, _np.float32), a.shape)
+    out = a * (1.0 - soft) + flat * soft
+    out = _ground_shadow(out, bg)
     return Image.fromarray(_np.clip(out, 0, 255).astype("uint8"))
+
+
+def _ground_shadow(out, bg):
+    """Soft contact shadow under the shoes so the figure sits on the floor instead of floating."""
+    h, w = bg.shape
+    fig = ~bg
+    rows = _np.flatnonzero(fig[:, :].sum(1) > 6)
+    if not len(rows):
+        return out
+    sole = int(rows[-1])
+    cols = _np.flatnonzero(fig[max(0, sole - 40):sole + 1].sum(0) > 0)
+    if len(cols) < 10:
+        return out
+    cx, half = (cols[0] + cols[-1]) / 2.0, (cols[-1] - cols[0]) / 2.0
+    yy, xx = _np.mgrid[0:h, 0:w].astype(_np.float32)
+    rx, ry = half * SHADOW_W, half * SHADOW_H
+    d = ((xx - cx) / max(rx, 1)) ** 2 + ((yy - sole + ry * 0.15) / max(ry, 1)) ** 2
+    sh = _np.clip(1.0 - d, 0, 1) ** 1.5
+    sh = _np.asarray(Image.fromarray((sh * 255).astype("uint8"))
+                     .filter(_IF.GaussianBlur(SHADOW_BLUR)), _np.float32) / 255.0
+    sh = sh * bg                                   # never darken the figure itself
+    return out * (1.0 - SHADOW_STRENGTH * sh[..., None])
 
 cuts = []; H = None; H_FULL = None
 
