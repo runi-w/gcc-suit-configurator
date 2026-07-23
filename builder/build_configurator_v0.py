@@ -332,7 +332,11 @@ HTML = r"""<meta charset="utf-8"><meta name="viewport" content="width=device-wid
  /* ---- top bar: centred wordmark, price + cart on the right ---- */
  .topbar{flex:none;position:relative;display:flex;align-items:center;justify-content:flex-end;gap:18px;
    padding:0 22px;height:72px;background:var(--bg);border-bottom:1px solid var(--line)}
- .brand{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-weight:600;letter-spacing:.26em;font-size:15px;white-space:nowrap}
+ /* The wordmark is also the way BACK to the site: this page renders with {% layout none %} on
+    Shopify, so there is no theme header and this is the only exit. Never hide it. */
+ .brand{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-weight:600;letter-spacing:.26em;font-size:15px;white-space:nowrap;
+   color:inherit;text-decoration:none}
+ .brand:hover{opacity:.62}
  .tot b{font-weight:500;font-size:17px;letter-spacing:-.01em}
  .tot small{display:none}
  .finish{border:none;background:var(--on);color:#fff;border-radius:999px;padding:12px 24px;font:500 13.5px var(--sans);cursor:pointer;white-space:nowrap;transition:.14s}
@@ -437,8 +441,12 @@ HTML = r"""<meta charset="utf-8"><meta name="viewport" content="width=device-wid
   .viewbar{left:14px;bottom:14px}
  }
  @media(max-width:560px){
-  .brand{display:none}
-  .topbar{justify-content:space-between;padding:0 14px}
+  /* was display:none — but with no theme header there was then no branding and no way back to
+     the site at all on a phone. Un-centre it instead so it sits left of the price and button. */
+  .brand{position:static;transform:none;font-size:11px;letter-spacing:.14em;margin-right:auto}
+  .topbar{justify-content:flex-end;padding:0 14px;gap:10px}
+  .tot b{font-size:15px}
+  .finish{padding:11px 17px;font-size:12.5px}
   .grid{grid-template-columns:repeat(4,1fr)}
   /* keep the floating view card clear of the model's feet on a narrow stage */
   .viewbar{left:12px;bottom:12px;border-radius:11px}
@@ -465,7 +473,7 @@ HTML = r"""<meta charset="utf-8"><meta name="viewport" content="width=device-wid
 </style>
 <div class="app" id="app">
  <div class="topbar">
-  <div class="brand">GAGE COURT</div>
+  <a class="brand" href="/" title="Gage Court Clothiers &mdash; back to the site">GAGE COURT</a>
   <div class="tot"><b id="totVal">$575</b><small id="totSub"></small></div>
   <button class="finish" id="addCart">Add to cart</button>
  </div>
