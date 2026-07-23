@@ -15,7 +15,12 @@ AN = f"{HM}/fabric_analysis.json"   # legacy, unused by the current fabric pipel
 # ~10.3 — the single largest perceptual gap, and it was a display-size choice, not an
 # asset-quality one. NOTE: every px-scale constant below is expressed via RSCALE so the
 # locked look (playbook, tuned at W=700) survives the resolution change.
-W = 1300
+W = 1600     # was 1300 (2026-07-23). The mobile chest-up window is 0.60·W; at 1300 that is
+             # 780 px shown on ~1100 device px (3x-dpr phone) = a 1.4x upscale, which the user
+             # correctly read as "the top of the garment is blurry" against the downscaled
+             # (hence crisp) full-figure view. At 1600 the window presents near 1:1. Source
+             # renders are 1840 wide, so no asset is stretched. Runtime cost ~1.5x per fabric
+             # switch — presentation quality is the product here.
 BASE_W = 700.0          # the width every px-tuned constant was calibrated at
 RSCALE = W / BASE_W
 # Fraction of the frame kept, from the top. 1.0 = the full figure including shoes, which
@@ -391,9 +396,24 @@ for m in FABMETA:
     out_px = max(24, int(round(on_screen * OVERSAMPLE)))
     tile = Image.open(tp).convert("RGB").resize((out_px, out_px), Image.LANCZOS)
     micro = Image.open(npth).convert("RGB").resize((out_px, out_px), Image.LANCZOS) if os.path.exists(npth) else None
+    # SWATCH CHIP (2026-07-23): the grid used to show the raw prep tile, which displays the
+    # cloth at ~4x the scale the model shows it, flat-lit and full-contrast — so the chip and
+    # the garment read as different fabrics (user-flagged). The chip is now a fixed 3 cm x 3 cm
+    # window of cloth passed through the model's own treatment: the same band-limit the runtime
+    # footprint applies, at a scale a shopper can mentally map onto the suit ("a close pinch of
+    # the cloth"), with the garment's exposure (the drape calibration puts the garment at ~98%
+    # of the cloth's luminance, so no gain is needed — matching treatment, not re-lighting).
+    src_ppcm = tile.width / m["cmPerTile"]
+    win = max(24, int(round(3.0 * src_ppcm)))
+    cw_img = Image.new("RGB", (win, win))
+    for _yy in range(0, win, tile.height):
+        for _xx in range(0, win, tile.width):
+            cw_img.paste(tile, (_xx, _yy))
+    chip = cw_img.resize((220, 220), Image.LANCZOS).filter(_IF.GaussianBlur(0.5))
     fab = {
         "code": m["code"], "name": m["name"], "kind": m["kind"],
         "tile": datauri(tile, "JPEG", quality=90, optimize=True),
+        "chip": datauri(chip, "JPEG", quality=88, optimize=True),
         "sheen": m["sheen"], "relief": m["relief"], "meanLum": m.get("meanLum", 0.18),
         "cmPerTile": m["cmPerTile"], "onScreenPx": round(on_screen, 1),
         "price2pc": 575, "priceVest": 200,
@@ -973,7 +993,7 @@ function renderPanel(){const p=document.getElementById('panel');if(!p)return;p.i
     const g=el('div','grid');
     filteredFabrics().forEach(f=>{const b=el('button','sw'+(state.fabric===f.code?' on':''),
         '<span class="tick"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span>');
-      b.style.backgroundImage='url("'+(f.tile||f.img)+'")';b.title=f.name;
+      b.style.backgroundImage='url("'+(f.chip||f.tile||f.img)+'")';b.title=f.name;
       b.onclick=()=>pick(()=>state.fabric=f.code);g.appendChild(b);});
     p.appendChild(g);
     if(!filteredFabrics().length)p.appendChild(el('p','note','No cloths in this group yet.'));
