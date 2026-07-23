@@ -72,11 +72,15 @@ VIZ = {TORSO_L: (70, 110, 200), TORSO_R: (90, 170, 230), LAPEL_L: (235, 110, 50)
 #                       Verified on the finished composite: back-view collar measures +86.8 (sd
 #                       7.7) against 0 before, so the table value lands essentially untouched.
 #
-# CALIBRATION — the table value is NOT the angle you see. The rotation is applied on top of the
-# existing normal-driven warp, which already leans the lapel about 4 deg on its own (measured:
-# lapel-L -7.5 deg with the whole table zeroed). So rendered ~= table + 4 on the lapel. The collar
-# has no such offset (it measured -0.8 at table 0) because it sits in a flat part of the normal
-# field. Re-measure with audit/panel_angles.py, not by trusting this table, if the warp changes.
+# CALIBRATION — the table value is NOT the angle you see: the lapel measures about 4 deg steeper
+# on the finished composite than the number here (lapel-L -19.9 against a table -16.0).
+#
+# ⚠ CORRECTED 2026-07-23. This note used to attribute that offset to the normal-driven pattern
+# warp. That was wrong: with the warp amplitude set to ZERO the lapel still measures -19.9, so
+# the warp contributes ~0 of it. The offset is the measurement itself — a structure-tensor angle
+# over a tapered band picks up the lapel's own edges and the shading gradient along the roll
+# line, not purely the cloth grain. Treat it as an estimator bias, not a compositor term.
+# Re-measure with audit/panel_angles.py; never quote this table as the rendered result.
 PANEL_ANGLES = [0.0] * N_PANELS
 PANEL_ANGLES[LAPEL_L] = -16.0
 PANEL_ANGLES[LAPEL_R] = +16.0

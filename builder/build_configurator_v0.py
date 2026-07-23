@@ -30,6 +30,28 @@ CUTS = [
 ]
 # Fabrics come from prep_fabrics.py (real Elite Wool scans, 300 DPI -> true cm scale).
 FAB_DIR = f"{HM}/fabric_build"
+# PATTERN WARP AMPLITUDE, in units of the original 6-at-BASE_W tuning. 0 = the cloth pattern is
+# RULED STRAIGHT per panel (Path A's per-panel rotation still applies).
+#
+# ⚠ Set to 0 on 2026-07-23 after measuring what this term actually does. It is NOT a drape term:
+# the garment's whole three-dimensionality — folds, creases, shading, sheen — comes from the
+# drape map overlay and the additive sheen pass, both independent of dispX/dispY. This term only
+# moves WHERE THE TILE IS SAMPLED, and it was doing that badly:
+#   - Displacement reached 12.07 canvas px against a 26.6 px chalk-stripe pitch — up to 45% of a
+#     whole stripe period, varying across the garment. That is the visible stripe wander.
+#   - It DILATED the pattern: measured stripe spacing 29.32 px median (+9.6%) with it on, against
+#     a nominal 26.75 px, spread 22.3..32.1. It was silently breaking the 0.99x true-scale
+#     calibration that PX_PER_CM/FIGURE_FRAC exist to guarantee.
+#   - Scored against a cylinder-foreshortening ideal it was WORSE THAN A FLAT PATTERN on 24 of 24
+#     panel-cases across 6 cut-views, and it EXPANDED where foreshortening must compress on 86.6%
+#     of torso pixels. It is derived from a LIGHTING-derived Marigold normal, so it correlates
+#     with where the cloth catches light, not with how the cloth curves — wrong quantity, and on
+#     the torso the wrong sign.
+# The only thing lost is that matched-estimator torso swing goes to 0 deg where Suitsupply's
+# photographic reference measures 2.8 deg. That statistic was being matched by the wrong
+# mechanism; judged by eye on chalk stripe and glen check, front and back, ruled-straight wins.
+# Solids are unaffected either way (8 of 17 cloths show no measurable change at any amplitude).
+WARP_AMP_MULT = 0.0
 SIL_WRAP   = 0.00       # silhouette-relative pattern wrap. VALIDATED on the torso: at 0.70 the
                         # four central bands order correctly (-7.2 -4.5 -0.2 +3.7) where before they
                         # were noise. DISABLED because hw[y] spans the whole row, so the SLEEVES --
@@ -673,7 +695,13 @@ function warpedCloth(cutId,code){const A=cutAssets[cutId],{dispX,dispY,alpha,gra
     if(PANEL_ANG[p]===0){cx=wx*dens+oxx;cy=wy*dens+oyy;}
     else{const ax=pax[p],ay=pay[p],rx=wx-ax,ry=wy-ay,ct=pct[p],st=pst[p];
       cx=(ax+rx*ct+ry*st)*dens+oxx;cy=(ay-rx*st+ry*ct)*dens+oyy;}
-    const gx=i%W<W-1?Math.abs(dispX[i+1]-dispX[i]):0,gy=i>=W?Math.abs(dispY[i]-dispY[i-W]):0;const fp=dens*FOOT*(1+2*(gx+gy));
+    // gx/gy must only look at neighbours that are ALSO garment: buildWarpNormal writes disp
+    // only inside the mask, so an ungated read at the silhouette treats the full displacement
+    // as a gradient. Measured: edge pixels are 1.3-1.8% of the garment but their footprint ran
+    // to 37.7 texels (18.8 canvas px = 70% of a stripe pitch) against an interior max of 3.31,
+    // and 100% of all fp>4 pixels on every view were edge pixels — a faint ghosted rim.
+    const gx=(i%W<W-1&&alpha[i+1])?Math.abs(dispX[i+1]-dispX[i]):0,
+          gy=(i>=W&&alpha[i-W])?Math.abs(dispY[i]-dispY[i-W]):0;const fp=dens*FOOT*(1+2*(gx+gy));
     let rl=0,gl=0,bl=0;
     for(let sj=0;sj<SS;sj++)for(let si=0;si<SS;si++){const sx=cx+((si+0.5)/SS-0.5)*fp,sy=cy+((sj+0.5)/SS-0.5)*fp;
       let fx=sx%tw;if(fx<0)fx+=tw;let fy=sy%th;if(fy<0)fy+=th;
@@ -937,7 +965,7 @@ html = (HTML.replace("__CUTVIEWS__", json.dumps(cutviews))
             .replace("__SIL_WRAP__", f"{SIL_WRAP:.2f}")
             .replace("__PANEL_ANG__", json.dumps(PANEL_ANGLES))
             .replace("__STAGE__", "#%02x%02x%02x" % STAGE_RGB)
-            .replace("__WARP_AMP__", f"{6 * RSCALE:.2f}")
+            .replace("__WARP_AMP__", f"{WARP_AMP_MULT * RSCALE:.2f}")
             .replace("__NSMOOTH__", str(max(1, round(12 * RSCALE))))
             # cap 16->6.5 (2026-07-21): at 16 the displacement saturated (~30 canvas px, more
             # than a whole stripe pitch) in strong concave creases — crotch, hem curls — and
@@ -958,7 +986,7 @@ def _fill(s, cuts_json):
              .replace("__SIL_WRAP__", f"{SIL_WRAP:.2f}")
              .replace("__PANEL_ANG__", json.dumps(PANEL_ANGLES))
              .replace("__STAGE__", "#%02x%02x%02x" % STAGE_RGB)
-             .replace("__WARP_AMP__", f"{6 * RSCALE:.2f}")
+             .replace("__WARP_AMP__", f"{WARP_AMP_MULT * RSCALE:.2f}")
              .replace("__NSMOOTH__", str(max(1, round(12 * RSCALE))))
              .replace("__WARP_CAP__", f"{6.5 * RSCALE:.2f}"))
 

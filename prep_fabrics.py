@@ -63,8 +63,10 @@ FABRICS = [
 #      into the tile is why our stripes leaned -2..-3.5 deg on the torso where SS holds +/-0.7.
 #   2. PERIOD-SNAP the crop — the wrap-blend cross-fades a 22% band; when the tile width is not
 #      an integer number of stripe periods the two edges are out of phase and a fifth of every
-#      tile gets double-exposed ghost stripes. Snap the crop to whole periods so the blend
-#      reinforces instead of ghosting. Solids/checks are unaffected (weave has no phase).
+#      tile gets double-exposed ghost stripes. Snap the crop to whole periods.
+#      ⚠ 2026-07-23: snapping the tile WIDTH is necessary but NOT sufficient -- the blend mixes
+#      content (px - o) apart, which the width-snap does not make whole. seamless_wrap now takes
+#      the period and snaps `o` too. Solids/checks are unaffected (weave has no phase).
 STRIPE_CODES = {"DBU080A", "DBT6860", "DBU081A", "DBS175A"}
 # DISPLAY LINE-WIDTH FLOOR (2026-07-21, from the Suitsupply pinstripe study). Measured on
 # their production still: line contrast x4.3-5.0 (ours already x5.4+), but their lines are
@@ -180,14 +182,32 @@ def load(code):
     dpi = im.info.get("dpi", (300, 300))[0] or 300
     return im.convert("RGB"), float(dpi)
 
-def seamless_wrap(im, px, blend=BLEND):
-    """Make a tile seamless by cross-fading opposite edges. No mirroring -> no chevron artefact."""
+def seamless_wrap(im, px, blend=BLEND, period=None):
+    """Make a tile seamless by cross-fading opposite edges. No mirroring -> no chevron artefact.
+
+    ⚠ THE HORIZONTAL BLEND MUST BE A WHOLE NUMBER OF PATTERN PERIODS (2026-07-23).
+    The cross-fade mixes column px-o+i with column i, i.e. it blends content that is (px-o)
+    apart. For a stripe that is only in phase when (px-o) is a whole number of periods. The
+    period-snap below snaps the tile WIDTH to whole periods, which does NOT make (px-o) whole
+    -- and the old fixed o = 0.22*px left DBT6860 at px-o = 300 against a 192px period = 1.56
+    periods, i.e. near ANTI-phase: every second stripe got a dark band cross-faded onto it.
+    Measured: the raw 300 DPI scan's three stripes are uniform (amplitudes 89.4 / 94.9 / 95.1,
+    min/max 0.94) but the shipped tile read 111.6 / 66.4 (min/max 0.595). That "strong/weak
+    companion stripe" was never in the cloth -- it was this blend.
+    Passing `period` snaps o to the nearest whole number of periods (>=1), so the blend mixes
+    stripe onto stripe at identical phase: amplitude is preserved and only the weave cross-fades.
+    The VERTICAL blend needs no such treatment -- vertical stripes have no phase along y.
+    """
     a = np.asarray(im.resize((px, px), Image.LANCZOS), float)
     o = max(2, int(px * blend))
+    if period and period > 2:
+        o = int(max(1, round(o / period)) * round(period))
+        o = min(o, px // 2)
     r = np.linspace(0, 1, o)[None, :, None]                 # horizontal ramp
     a[:, px-o:px] = a[:, px-o:px] * (1 - r) + a[:, 0:o] * r  # right edge -> left edge
-    r = np.linspace(0, 1, o)[:, None, None]                 # vertical ramp
-    a[px-o:px, :] = a[px-o:px, :] * (1 - r) + a[0:o, :] * r  # bottom edge -> top edge
+    ov = max(2, int(px * blend))
+    r = np.linspace(0, 1, ov)[:, None, None]                # vertical ramp
+    a[px-ov:px, :] = a[px-ov:px, :] * (1 - r) + a[0:ov, :] * r  # bottom edge -> top edge
     return Image.fromarray(np.clip(a, 0, 255).astype('uint8'))
 
 def micro_normal(tile, strength):
@@ -220,6 +240,7 @@ for code, name in FABRICS:
     pxcm = dpi / 2.54
     crop_px = int(round(TILE_CM * pxcm))
     code0 = code.split()[0]
+    per_src = None                       # stripe period in SOURCE px, for the in-phase blend
     if code0 in STRIPE_CODES:
         ang = stripe_angle(im)
         if abs(ang) > 0.05:
@@ -231,12 +252,15 @@ for code, name in FABRICS:
         if per > 20:                                        # snap to whole stripe periods
             crop_px = max(1, int(crop_px / per)) * int(round(per))
             crop_px = min(crop_px, min(im.size))
+            per_src = per
         print(f"  {code0}: deskew {ang:+.2f} deg, period {per:.1f}px, tile {crop_px}px = {crop_px/pxcm:.2f}cm")
     crop_px = min(crop_px, min(im.size))                    # stay inside the scan
     cm_per_tile = crop_px / pxcm
     cx, cy = im.width // 2, im.height // 2
     sq = im.crop((cx-crop_px//2, cy-crop_px//2, cx+crop_px//2, cy+crop_px//2))
-    tile = tame_pattern(seamless_wrap(sq, TILE_PX),
+    # period in TILE px after the resize to TILE_PX (the crop is a whole number of periods)
+    per_tile = (per_src * TILE_PX / crop_px) if per_src else None
+    tile = tame_pattern(seamless_wrap(sq, TILE_PX, period=per_tile),
                         amount=CONTRAST_OVERRIDE.get(code0, PATTERN_CONTRAST))
     if code0 in STRIPE_CODES:
         # The floor only helps thin lines on wide pitch. Verified 2026-07-21: DBT6860

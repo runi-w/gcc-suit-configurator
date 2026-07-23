@@ -384,7 +384,8 @@ architecture rather than changing it.**
 │   ├── make_mask.py                garment segmenter (coverage ramp)
 │   ├── make_drape.py               drape map from render + mask
 │   ├── panels.py                   ⭐ Path A: panel segmentation + PANEL_ANGLES (the grain table)
-│   ├── prep_fabrics.py             scans → tiles + micro-normals + params
+│   └── (prep_fabrics.py lives at the REPO ROOT, not here — the builder copy was a
+│        stale fossil without deskew/period-snap/line-floor and is now a hard-exit stub)
 │   └── recolor_shoes.py            SUPERSEDED (generate black directly)
 ├── audit/                      ← measurement toolchain
 │   ├── calib.py                    colour vs mill scan
@@ -399,6 +400,7 @@ architecture rather than changing it.**
 │   ├── RENDER_MANIFEST.md          every option, what each costs
 │   ├── STUDIO_BRIEF.md             CAD pilot brief (not commissioned)
 │   └── PROMPT_01_hero.txt          paste-ready hero prompt
+├── prep_fabrics.py             ⭐ THE LIVE fabric prep: scans → tiles + params
 ├── renders/                    ← base renders (+ _superseded/)
 ├── drape_maps/                 ← drape (LA) + normal maps (+ _superseded/)
 ├── fabric_build/               ← tiles, micro-normals, fabrics.json
