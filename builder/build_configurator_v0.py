@@ -213,7 +213,11 @@ def on_stage(im):
     mx, mn = a.max(-1), a.min(-1)
     sat = (mx - mn) / _np.maximum(mx, 1e-6)
     lum = a.mean(-1)
-    near = (lum > 218) & (sat < 0.10)                  # sweep + its shadow, not the suit/skin
+    # 218 -> 195 (2026-07-23): the v6 hero's contact shadow is bigger and softer than the first
+    # model's — 47% of its pixels sat below 218, survived the keying, and smeared across the new
+    # flat stage. The garment's p99 is ~137 and skin is saturated, so 195/0.18 still cannot touch
+    # the figure; connectivity (below) is what protects the enclosed white shirt either way.
+    near = (lum > 195) & (sat < 0.18)                  # sweep + its shadow, not the suit/skin
     h, w = near.shape
     # --- connectivity on a proxy, so we only take sweep that reaches the frame edge ---
     sw = 448; sh = max(1, int(h * sw / w))

@@ -27,6 +27,7 @@ defect the first drafts had was caught by looking at that sheet, never by a numb
 """
 import numpy as np
 from PIL import Image
+from PIL import ImageFilter as _IFILT
 
 # ---------------------------------------------------------------- panel ids
 # 0 = not garment. Dense and small: the runtime uses these to index per-panel angle/anchor
@@ -332,19 +333,76 @@ def _lapels(render, b, lm, panel, px_per_cm):
     # into an X below the button — extrapolating them any further is meaningless.
     wide = int(round(LAPEL_CM * px_per_cm))
     y_cap = lm["shoulder_y"] + int(0.75 * max(1, lm["hem_y"] - lm["shoulder_y"]))
+
+    # ---- OUTER EDGE FROM THE RENDER, NOT FROM A FIXED WIDTH (2026-07-23) ----
+    # LAPEL_CM was tuned on the first house model and happened to match his jacket. The v6 hero's
+    # lapel is cut slimmer, and the fixed band spilled past the lapel's outer edge onto plain
+    # chest cloth — which then carried the ±16° grain rotation, printing diagonal stripes across
+    # the chest ("lines in the wrong direction", user-flagged, and correct). A real lapel ends at
+    # its own edge crease: the folded edge reads as a dark line a few px wide against the chest.
+    # Detect it per row: the strongest local luminance minimum outboard of the roll line, within
+    # the plausible width. Median-filter the detections so one noisy row cannot notch the band,
+    # and fall back to the old taper where no crease is found (deep shadow, low contrast).
+    lum_s = np.asarray(Image.fromarray(a.mean(-1).astype(np.uint8))
+                       .filter(_IFILT.GaussianBlur(1.5)), float)
+    def _edge(y, x_roll, sign):
+        x0 = int(round(x_roll + sign * 0.12 * wide))
+        x1 = int(round(x_roll + sign * 1.15 * wide))
+        lo, hi = (min(x0, x1), max(x0, x1))
+        if lo < 0 or hi >= W or hi - lo < 6:
+            return None
+        prof = lum_s[y, lo:hi]
+        i = int(np.argmin(prof))
+        if i <= 1 or i >= len(prof) - 2:
+            return None
+        depth = min(prof[:i].max(), prof[i:].max()) - prof[i]
+        if depth < 6:                      # no real crease: flat cloth or shadow
+            return None
+        return lo + i if sign > 0 else hi - (len(prof) - 1 - i)
+    # PASS 1 — collect per-row detected widths for both sides. PASS 2 — interpolate the misses
+    # and run a 15-row median so one noisy row cannot notch the band. A side whose detections
+    # are too sparse (<25% of rows) falls back to the taper entirely rather than trusting
+    # scattered hits — that is what produced a ragged comb on the first attempt at this.
+    rows_y, wL_raw, wR_raw = [], [], []
     for y in range(gorge_y, min(H, y_cap + 1)):
         lxi, rxi = np.polyval(pl, y), np.polyval(pr, y)
         if rxi - lxi < 0.10 * wide:            # roll lines have met: past the break point
             break
-        # A real lapel is narrow at the gorge and reaches full width by the chest. Without the
-        # taper the top of the band squares off across the shoulder beside the collar.
+        rows_y.append(y)
+        eL = _edge(y, lxi, -1)
+        eR = _edge(y, rxi, +1)
+        wL_raw.append(abs(lxi - eL) if eL is not None else np.nan)
+        wR_raw.append(abs(eR - rxi) if eR is not None else np.nan)
+    if not rows_y:
+        return
+
+    def _clean(wraw):
+        w_arr = np.array(wraw, float)
+        okm = ~np.isnan(w_arr)
+        if okm.mean() < 0.25:
+            return None
+        idx = np.arange(len(w_arr))
+        w_arr = np.interp(idx, idx[okm], w_arr[okm])
+        k = 7
+        pad = np.pad(w_arr, k, mode="edge")
+        med = np.array([np.median(pad[i:i + 2 * k + 1]) for i in range(len(w_arr))])
+        return np.clip(med, 0.30 * wide, 1.05 * wide)
+
+    wL, wR = _clean(wL_raw), _clean(wR_raw)
+    for j, y in enumerate(rows_y):
+        lxi, rxi = np.polyval(pl, y), np.polyval(pr, y)
+        # A real lapel is narrow at the gorge and reaches full width by the chest. The taper
+        # still CAPS the band near the gorge even when a real edge is detected, or the band
+        # squares off across the shoulder beside the collar.
         t = (y - gorge_y) / max(1.0, 0.35 * (y_cap - gorge_y))
         wide_y = int(round(wide * min(1.0, GORGE_FRAC + (1 - GORGE_FRAC) * t)))
-        a0, a1 = int(round(lxi - wide_y)), int(round(lxi))
+        wide_y_L = min(int(round(wL[j])), wide_y) if wL is not None else wide_y
+        wide_y_R = min(int(round(wR[j])), wide_y) if wR is not None else wide_y
+        a0, a1 = int(round(lxi - wide_y_L)), int(round(lxi))
         if a1 > a0:
             seg = np.zeros(W, bool); seg[max(0, a0):max(0, a1)] = True
             panel[y, seg & b[y]] = LAPEL_L
-        c0, c1 = int(round(rxi)), int(round(rxi + wide_y))
+        c0, c1 = int(round(rxi)), int(round(rxi + wide_y_R))
         if c1 > c0:
             seg = np.zeros(W, bool); seg[max(0, c0):min(W, c1)] = True
             panel[y, seg & b[y]] = LAPEL_R

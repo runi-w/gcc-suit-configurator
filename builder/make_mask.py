@@ -172,13 +172,17 @@ def suit_mask(img, clean=CLEAN, feather=FEATHER):
         step = can & dim
         start = start - step.astype(int)
         if not step.any(): break
-    # regional hull: columns at the shoe edges (highlight/penumbra) have no clean leather
+    # regional hull: columns at the shoe edges (highlight/penumbra) have no clean leather.
+    # Reach 15 -> 60 (2026-07-23): the v6 hero stands with a slightly wider stance and casts a
+    # floor shadow beside the shoe; a 2,577 px patch of it at x1133-1182 sat outside the ±15
+    # hull and rendered as cloth on the floor. Columns with no shoe within 60 px keep start=inf,
+    # so trousers on every other render are untouched.
     # run and kept their cloth all the way down, leaving translucent vertical bands beside
     # each shoe. Take the running MIN of start over ±15 columns so the cut covers the whole
     # shoe blob; columns further than that from any shoe are untouched.
     startf = np.where(has, start, 10 ** 6).astype(np.int32)
     hull = startf.copy()
-    for s in range(1, 16):
+    for s in range(1, 61):
         hull = np.minimum(hull, np.roll(startf, s))
         hull = np.minimum(hull, np.roll(startf, -s))
     rows = np.arange(dark.shape[0])[:, None]
