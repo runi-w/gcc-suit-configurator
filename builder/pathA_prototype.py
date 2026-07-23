@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Path A per-panel pattern-wrap PROTOTYPE (2026-07-22).
+"""Path A per-panel pattern-wrap PROTOTYPE (2026-07-22). SUPERSEDED 2026-07-23.
+
+>>> The real thing now lives in `builder/panels.py` (segmentation + PANEL_ANGLES) and in
+>>> `buildPanels`/`warpedCloth` inside build_configurator_v0.py. Every "KNOWN GAP" below is
+>>> closed there: the angles are measured and tuned, the mechanism is a rigid rotation about a
+>>> per-panel anchor, the seams follow the grain spec, and the segmentation runs on all 15
+>>> cut-views. This file is kept only as the record of the original proof of concept.
+
 
 Proof-of-concept that the runtime compositor CAN wrap a pinstripe per garment panel — vertical
 on the torso, diagonal along the lapel, tilted on the sleeves — instead of one global-vertical

@@ -77,6 +77,9 @@ def seamless_tile(path, size=132):
 
 import numpy as _np
 from PIL import ImageFilter as _IF
+import sys as _sys
+_sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from panels import segment, anchors, N_PANELS, PANEL_ANGLES   # Path A per-panel grain
 # Match Suitsupply's measured shading statistics (navy jacket body layer, 2026-07-21):
 #   broad-shading std 0.049, fold-band std 0.042, fold/broad ratio 0.86 -> a pressed,
 #   softly-lit suit. Our raw drape map measured 0.092/0.111 (2.6x harsher folds).
@@ -206,6 +209,11 @@ for cid, fn, openf in CUTS:
         if H is None:
             H_FULL = int(W * la.height / la.width)
             H = int(H_FULL * CROP_FRAC)
+            # px/cm is a property of the FULL frame's geometry (FIGURE_FRAC is measured against
+            # it), so it must come from H_FULL — cropping moves the viewport, not the model's
+            # scale. Needed here, not just below, because the panel segmentation measures the
+            # garment in cm.
+            PX_PER_CM = (FIGURE_FRAC * H_FULL) / FIGURE_CM
         L, A = la.split()
         ub = datauri(_fit(on_stage(Image.open(rp))), "JPEG", quality=82, optimize=True)
         # the garment mask gates the exposure normalisation (hard threshold, per the standing rule)
@@ -218,15 +226,26 @@ for cid, fn, openf in CUTS:
         # both measured up to ~18-20 deg of angular error). WebP lossless is bit-exact
         # (0.000 deg, verified 2026-07-21) and ~27% smaller than PNG.
         un = datauri(_fit(Image.open(npth).convert("RGB")), "WEBP", lossless=True, quality=100)
+        # PATH A — per-panel grain (plan/PATH_A_GRAIN_SPEC.md). Segment the garment into its
+        # tailoring panels here, where the render's own pixels are available and the result can
+        # be rendered as an overlay and looked at (builder/panels.py's __main__ writes the QA
+        # sheet). The map rides along as a 9-value greyscale PNG — flat regions, so all 15
+        # cut-views together cost ~128 KB base64, ~1% of the deliverable.
+        pmap, plm = segment(_fit(Image.open(rp).convert("RGB")), _fit(A).convert("L"),
+                            view, PX_PER_CM)
+        anc = anchors(pmap, plm)
+        up = datauri(Image.fromarray(pmap), "PNG", optimize=True)
         # openFront (front-opening seam/lapel break) is a FRONT-view property only
         cuts.append({"id": f"{cid}__{view}", "base": ub, "drape": ud, "mask": um, "normal": un,
+                     "panel": up,
+                     "anchor": [[round(anc.get(p, (0, 0))[0], 1), round(anc.get(p, (0, 0))[1], 1)]
+                                for p in range(N_PANELS)],
                      "openFront": bool(openf and view == "front")})
         cutviews.setdefault(cid, []).append(view)
 print("  cut-views embedded: " + ", ".join(f"{k}[{'/'.join(v)}]" for k, v in cutviews.items()))
 
-# px/cm is a property of the FULL frame's geometry (FIGURE_FRAC is measured against it),
-# so it must be derived from H_FULL — cropping moves the viewport, not the model's scale.
-PX_PER_CM = (FIGURE_FRAC * H_FULL) / FIGURE_CM
+# PX_PER_CM is set in the cut-view loop above, as soon as H_FULL is known (the segmentation
+# needs it there). See the comment at that assignment for why it derives from H_FULL.
 FABMETA = json.load(open(f"{FAB_DIR}/fabrics.json"))
 # Per-fabric BAKED STILLS — the Suitsupply fabric-step architecture (2026-07-21): at the
 # fabric step the stage shows the fabric's approved catalog image (one gorgeous per-fabric
@@ -492,6 +511,10 @@ let state={fabric:FABRICS[0].code,style:"2-button",lapel:"Notch",chest:OPTS.ches
 const WARP_AMP_N=__WARP_AMP__,NZ_MIN=0.35,NSMOOTH=__NSMOOTH__,WARP_CAP=__WARP_CAP__,PAT_DENSITY=__PAT_DENSITY__,SEAM_PHASE=0.42,SEAM_BUTTON=0.46,SS=3;
 const OVERSAMPLE=__PAT_DENSITY__;   // must equal the builder OVERSAMPLE — tiles are pre-scaled
 const SIL_WRAP=__SIL_WRAP__;   // how much the pattern follows the garment silhouette
+// PATH A per-panel grain, degrees, indexed by panel id (see builder/panels.py — that file is
+// where this table is defined and documented; it is emitted here so it ships with the compositor).
+// [none, torso-L, torso-R, lapel-L, lapel-R, sleeve-L, sleeve-R, collar, trouser]
+const PANEL_ANG=__PANEL_ANG__;
 const FOOT=__FOOT__;           // runtime sampling footprint, in units of dens texels
 const SHEEN_POW=1.6;           // how tightly the sheen hugs grazing angles
 const GLINT=0.55;              // how much the weave micro-normal modulates the sheen
@@ -536,14 +559,25 @@ function buildWarpNormal(nimg,alpha){const nc=document.createElement('canvas');n
   for(let i=0;i<W*H;i++){if(!alpha[i])continue;const nz=Math.min(1,Math.abs(g[i*4+2]/127.5-1));
     graze[i]=Math.pow(1-nz,SHEEN_POW);}
   return {dispX,dispY,alpha,graze};}
-function buildPanels(alpha){const cen=new Float32Array(H);
+// The FRONT-OPENING phase break. Unchanged from before Path A, on purpose: the grain spec's
+// seam research tested both a "collar-to-lapel matching is unnatural" claim and a "mismatch there
+// is normal" claim and refuted BOTH, so there is no grounded reason to move SEAM_PHASE. It stays
+// a per-PIXEL rule (right of the body's centre line, above the button) rather than becoming a
+// per-panel one, so the existing look is preserved exactly.
+function buildSeamPhase(alpha){const cen=new Float32Array(H);
   for(let y=0;y<H;y++){let s=0,c=0;for(let x=0;x<W;x++){if(alpha[y*W+x]){s+=x;c++;}}cen[y]=c?s/c:W/2;}
   const sm=new Float32Array(H),r=15;for(let y=0;y<H;y++){let s=0,c=0;for(let k=-r;k<=r;k++){const yy=y+k;if(yy>=0&&yy<H){s+=cen[yy];c++;}}sm[y]=s/c;}
-  const bY=Math.floor(SEAM_BUTTON*H),panel=new Uint8Array(W*H);for(let y=0;y<bY;y++)for(let x=0;x<W;x++)if(alpha[y*W+x]&&x>sm[y])panel[y*W+x]=1;return panel;}
+  const bY=Math.floor(SEAM_BUTTON*H),seam=new Uint8Array(W*H);for(let y=0;y<bY;y++)for(let x=0;x<W;x++)if(alpha[y*W+x]&&x>sm[y])seam[y*W+x]=1;return seam;}
+// PATH A — per-panel grain. The map itself is segmented at build time (builder/panels.py), where
+// the render's own pixels are available and the result can be looked at; here we only decode it.
+// Greyscale PNG, one panel id per pixel, so the red channel IS the id.
+function buildPanels(img){const c=document.createElement('canvas');c.width=W;c.height=H;
+  const x=c.getContext('2d');x.drawImage(img,0,0,W,H);const d=x.getImageData(0,0,W,H).data;
+  const p=new Uint8Array(W*H);for(let i=0;i<W*H;i++)p[i]=d[i*4];return p;}
 function sizeHero(){const st=hero.parentElement;if(!st||!W)return;const sw=Math.max(40,st.clientWidth-6),sh=Math.max(40,st.clientHeight-6),AR=W/H;
   let h=sh,w=h*AR;if(w>sw){w=sw;h=w/AR;}hero.style.width=Math.round(w)+'px';hero.style.height=Math.round(h)+'px';}
 async function init(){
-  for(const c of CUTS){const [b,d,m,nimg]=await Promise.all([load(c.base),load(c.drape),load(c.mask),load(c.normal)]);
+  for(const c of CUTS){const [b,d,m,nimg,pimg]=await Promise.all([load(c.base),load(c.drape),load(c.mask),load(c.normal),load(c.panel)]);
     if(!W){W=b.naturalWidth;H=b.naturalHeight;hero.width=W;hero.height=H;sizeHero();addEventListener('resize',sizeHero);
       // the stage can change size without a window resize (rail clamp, Shopify container,
       // the expand toggle) — observe the element itself, not just the window.
@@ -556,7 +590,15 @@ async function init(){
     for(let i=0;i<di.data.length;i+=4)di.data[i+3]=mi.data[i];dx.putImageData(di,0,0);
     const alpha=new Uint8Array(W*H);for(let i=0;i<W*H;i++)alpha[i]=mi.data[i*4];
     const warp=buildWarpNormal(nimg,alpha);
-    cutAssets[c.id]={base:b,drapeLA:dc,warp,panel:c.openFront?buildPanels(warp.alpha):new Uint8Array(W*H)};}
+    // per-panel grain, precomputed once per cut-view: cos/sin of the panel's angle and the
+    // anchor it turns about (see PANEL_ANG and builder/panels.py's `anchors`)
+    const nP=PANEL_ANG.length,pct=new Float32Array(nP),pst=new Float32Array(nP),
+          pax=new Float32Array(nP),pay=new Float32Array(nP);
+    for(let p=0;p<nP;p++){const t=PANEL_ANG[p]*Math.PI/180;pct[p]=Math.cos(t);pst[p]=Math.sin(t);
+      const a=(c.anchor&&c.anchor[p])||[0,0];pax[p]=a[0];pay[p]=a[1];}
+    cutAssets[c.id]={base:b,drapeLA:dc,warp,pct,pst,pax,pay,
+      panel:buildPanels(pimg),
+      seam:c.openFront?buildSeamPhase(warp.alpha):new Uint8Array(W*H)};}
   await Promise.all(FABRICS.map(async f=>{const t=await load(f.tile);pat[f.code]=ox.createPattern(t,'repeat');
     if(f.micro){const mi=await load(f.micro);const mc=document.createElement('canvas');mc.width=mi.naturalWidth;mc.height=mi.naturalHeight;
       const mxx=mc.getContext('2d');mxx.drawImage(mi,0,0);microPix[f.code]=mxx.getImageData(0,0,mc.width,mc.height).data;}
@@ -565,14 +607,28 @@ async function init(){
   buildDock();render();sizeHero();}
 let clothC,clothX;
 let sheenBuf=null;
-function warpedCloth(cutId,code){const {dispX,dispY,alpha,graze}=cutAssets[cutId].warp,panel=cutAssets[cutId].panel,T=fabPix[code],tw=T.w,th=T.h,td=T.d;
+function warpedCloth(cutId,code){const A=cutAssets[cutId],{dispX,dispY,alpha,graze}=A.warp,
+  seam=A.seam,panel=A.panel,pct=A.pct,pst=A.pst,pax=A.pax,pay=A.pay,
+  T=fabPix[code],tw=T.w,th=T.h,td=T.d;
   const MN=microPix[code]||null,fdef=FABRICS.find(f=>f.code===code)||{},sheenAmt=(fdef.sheen!=null?fdef.sheen:0.14),sheenLum=(fdef.meanLum!=null?fdef.meanLum:0.18);
   if(!sheenBuf||sheenBuf.length!==W*H)sheenBuf=new Float32Array(W*H);
   const dens=(FABRICS.find(f=>f.code===code)||{}).density||PAT_DENSITY;const pox=SEAM_PHASE*tw,poy=SEAM_PHASE*th;
   if(!clothC){clothC=document.createElement('canvas');clothC.width=W;clothC.height=H;clothX=clothC.getContext('2d');}
   const out=clothX.createImageData(W,H),od=out.data;
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x;if(!alpha[i]){od[i*4+3]=0;continue;}
-    const oxx=panel[i]?pox:0,oyy=panel[i]?poy:0;const cx=(x+dispX[i])*dens+oxx,cy=(y+dispY[i])*dens+oyy;
+    const oxx=seam[i]?pox:0,oyy=seam[i]?poy:0;
+    // PATH A — per-panel grain. The torso and trousers are angle 0 and take the original path
+    // verbatim (not just numerically equal: the same expression), so the panel with the measured
+    // Suitsupply parity cannot regress. Lapel and collar rotate the sampling coordinate rigidly
+    // about the panel's anchor, which is what makes the pattern sit still AT the anchor and turn
+    // around it — that anchor is therefore also the panel's phase reference (the sleeve's sits on
+    // the armhole at chest height, the one line the spec says a sleeve must match the body on).
+    // A rigid coordinate rotation carries whatever is in the tile, so a check's two axes turn
+    // together automatically; no separate 2D-pattern path is needed.
+    const p=panel[i],wx=x+dispX[i],wy=y+dispY[i];let cx,cy;
+    if(PANEL_ANG[p]===0){cx=wx*dens+oxx;cy=wy*dens+oyy;}
+    else{const ax=pax[p],ay=pay[p],rx=wx-ax,ry=wy-ay,ct=pct[p],st=pst[p];
+      cx=(ax+rx*ct+ry*st)*dens+oxx;cy=(ay-rx*st+ry*ct)*dens+oyy;}
     const gx=i%W<W-1?Math.abs(dispX[i+1]-dispX[i]):0,gy=i>=W?Math.abs(dispY[i]-dispY[i-W]):0;const fp=dens*FOOT*(1+2*(gx+gy));
     let rl=0,gl=0,bl=0;
     for(let sj=0;sj<SS;sj++)for(let si=0;si<SS;si++){const sx=cx+((si+0.5)/SS-0.5)*fp,sy=cy+((sj+0.5)/SS-0.5)*fp;
@@ -830,6 +886,7 @@ html = (HTML.replace("__CUTVIEWS__", json.dumps(cutviews))
             .replace("__PAT_DENSITY__", str(OVERSAMPLE))
             .replace("__FOOT__", f"{FOOTPRINT:.2f}")
             .replace("__SIL_WRAP__", f"{SIL_WRAP:.2f}")
+            .replace("__PANEL_ANG__", json.dumps(PANEL_ANGLES))
             .replace("__STAGE__", "#%02x%02x%02x" % STAGE_RGB)
             .replace("__WARP_AMP__", f"{6 * RSCALE:.2f}")
             .replace("__NSMOOTH__", str(max(1, round(12 * RSCALE))))
