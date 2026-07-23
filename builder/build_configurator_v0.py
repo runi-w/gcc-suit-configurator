@@ -225,7 +225,19 @@ for cid, fn, openf in CUTS:
         # normal maps stay LOSSLESS — lossy codecs corrupt the vectors (JPEG q95 and WebP q95
         # both measured up to ~18-20 deg of angular error). WebP lossless is bit-exact
         # (0.000 deg, verified 2026-07-21) and ~27% smaller than PNG.
-        un = datauri(_fit(Image.open(npth).convert("RGB")), "WEBP", lossless=True, quality=100)
+        # ...but they do NOT need full RESOLUTION, which is a different question from codec
+        # fidelity and was costing 64% of the deliverable (482 KB x 15 = 7.1 MB). The compositor
+        # consumes this map in exactly two ways, both of which discard high frequencies: dispX/
+        # dispY, which is box-blurred at NSMOOTH (22 px here) and capped at WARP_CAP; and graze,
+        # a broad grazing-angle term for the sheen. Measured at half scale (2026-07-23, on front/
+        # side/back): displacement error p95 0.05-0.12 px and MAX 0.30 px against a 12 px cap,
+        # graze error p95 <0.01 — sub-pixel, for 2.8x fewer bytes. No JS change needed either:
+        # buildWarpNormal already does drawImage(nimg,0,0,W,H), so the browser upsamples it.
+        NORMAL_SCALE = 0.5
+        _n = _fit(Image.open(npth).convert("RGB"))
+        _n = _n.resize((max(1, round(_n.width * NORMAL_SCALE)),
+                        max(1, round(_n.height * NORMAL_SCALE))), Image.LANCZOS)
+        un = datauri(_n, "WEBP", lossless=True, quality=100)
         # PATH A — per-panel grain (plan/PATH_A_GRAIN_SPEC.md). Segment the garment into its
         # tailoring panels here, where the render's own pixels are available and the result can
         # be rendered as an overlay and looked at (builder/panels.py's __main__ writes the QA

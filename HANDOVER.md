@@ -75,6 +75,31 @@ compositor now gives each tailoring panel its own cloth grain, on all 15 cut-vie
   wrong. Left as torso rather than encoding a wrong segmentation. This is the one place the shipped
   grain is knowingly incomplete (side views get lapel + collar, no sleeve lean).
 
+### ⭐⭐ Session 5 (same day) — deliverable 10.97 → 6.60 MB, from the normal maps' RESOLUTION
+
+The normal maps were **64% of the whole file** (482 KB x 15 = 7.1 MB). They are now emitted at
+**half linear resolution**, which cuts the deliverable by 40% with a measured, invisible cost.
+
+- **Codec fidelity and RESOLUTION are different questions.** The playbook's "normal maps must
+  stay LOSSLESS" rule came from measuring lossy codecs at 18-20° of angular vector error — that
+  rule is untouched, they are still lossless WebP. But the compositor consumes this map in only
+  two ways, and both discard high frequencies: `dispX/dispY`, which is **box-blurred at NSMOOTH
+  (22 px at W=1300)** and capped at `WARP_CAP`; and `graze`, a broad grazing-angle sheen term.
+- **Measured at half scale** on front/side/back: displacement error **p95 0.05–0.12 px, MAX
+  0.30 px against a 12 px warp cap**; graze error p95 <0.01. Sub-pixel.
+- **Verified on the actual composite**, all 15 cut-views: mean difference **0.043 levels out of
+  255**, p99 = 1 level, only 0.16% of pixels differ by more than 2 levels. Visually identical at
+  high zoom on a pinstripe chest, which is where a sub-pixel warp shift would show first.
+- **No JS change was needed** — `buildWarpNormal` already does `drawImage(nimg,0,0,W,H)`, so the
+  browser upsamples whatever it is handed.
+- Quarter scale was also measured (max 0.75 px, ~5.4 MB total) and NOT taken: 0.5 is comfortably
+  sub-pixel and the extra ~0.9 MB is not worth doubling the error. `NORMAL_SCALE` is a named
+  constant in the builder if that trade ever looks different.
+- **Remaining breakdown at 6.60 MB:** normal 2.5, base (JPEG q82) 1.74, drape (JPEG q90) 1.16,
+  mask 0.49, panel 0.12, fabrics 0.18, options 0.16. The next real lever is no longer compression
+  — it is that **10 of the 15 cut-views are side/back**, so externally hosting those would leave a
+  front-only initial load of ~2.2 MB. That is architectural and pairs with the Shopify embed.
+
 ### ⭐⭐ Session 5 (same day) — the side/back shoulder blotch FIXED, and the diagnosis was wrong twice
 
 Found while verifying Path A on a navy pinstripe: the garment masks were leaving a broad ragged
@@ -223,9 +248,9 @@ architecture rather than changing it.**
   spec's "What this means for GCC" section for the point-by-point mapping to `buildPanels`/
   `buildWarpNormal`/`warpedCloth`.
 
-- **`configurator-v0.html`** — self-contained, **10.87 MB** (grew 3.5×: now embeds 15 renders
-  incl. side/back), data-URIs, zero external refs. ⚠ **Too heavy for a Shopify embed** — lazy-load
-  or externally host the side/back assets before embedding (§6 item).
+- **`configurator-v0.html`** — self-contained, **6.60 MB** (15 cut-views incl. side/back),
+  data-URIs, zero external refs. ⚠ **Still heavy for a Shopify embed** — compression is done
+  (§2); externally host the 10 side/back cut-views before embedding (§6 item 2).
 - **Right-rail UI** (user-approved). Stage + rail (Fabric / Style / Measurements). Bottom-left card
   now has a working **Front / Side / Back** view toggle.
 - **17 cloths** — 10 Elite + 2 Elite pinstripes (DBT6860, DBU081A) + 5 Prestige test.
@@ -405,16 +430,17 @@ python3 builder/build_configurator_v0.py                     # 5. build
    there explains why rendered ≈ table + 4° on the lapel. Only the two Elite pinstripes
    (DBT6860, DBU081A) have really been judged — worth a look on a check/windowpane, where the
    prediction is that both grid axes rotate together with no extra code.
-2. **Trim the deliverable size** — 10.97 MB is over the Shopify page budget. Lazy-load or
-   externally host the side/back render assets so the initial page stays light.
-3. **Shopify embed** — `themeFilesUpsert` onto theme 149240774843 → `pageCreate` (after #2).
-4. **Difficulty-routing bake fallback (`plan/RESEARCH_FINDINGS.md`)** — only if Path A quality is
+2. **Shopify embed, and finish the size job with it** — 6.60 MB after the normal-map halving
+   (§2), still heavy for a page. Compression is done; the remaining lever is that 10 of the 15
+   cut-views are side/back, so host those on the Shopify CDN and fetch on demand → ~2.2 MB
+   initial. Then `themeFilesUpsert` onto theme 149240774843 → `pageCreate`.
+3. **Difficulty-routing bake fallback (`plan/RESEARCH_FINDINGS.md`)** — only if Path A quality is
    judged insufficient: AI-bake the ~27–29 bold directional fabrics onto the STANDING render (run
    the validation gate first). Path A is preferred (one-time, all-fabrics, live) and is now built.
-5. **Batch all 117 fabrics** — UNBLOCKED (anchors frozen); spot-check outliers.
-6. **Register `orders/paid` webhook** + wire the backend.
+4. **Batch all 117 fabrics** — UNBLOCKED (anchors frozen); spot-check outliers.
+5. **Register `orders/paid` webhook** + wire the backend.
 
-**Minor known defects (noted, non-blocking):** deliverable size (10.97 MB, #2 above); the side
+**Minor known defects (noted, non-blocking):** deliverable size (6.60 MB, #2 above); the side
 view has no sleeve panel, so it gets lapel + collar grain but no sleeve lean (§2, deliberate);
 a thin antialiased rim at the shoulder silhouette on side/back, which is the coverage ramp
 working as designed (the broad blotch that used to be filed here was real and is now fixed, §2).
@@ -422,7 +448,8 @@ working as designed (the broad blotch that used to be filed here was real and is
 **DONE Session 5:** Path A implemented end-to-end — `builder/panels.py` segmenter + per-panel
 rotation in the compositor, shipped at lapel ±16 / sleeve ±5 / collar 87, no torso regression
 (0 leaked pixels); side/back shoulder mask blotch diagnosed and FIXED (missed px −42%, side-view
-run width 37-52px → 10-12px), make_mask ~4x faster. **DONE Session 4:** Path A research plan (R1-R4) executed — `plan/PATH_A_GRAIN_SPEC.md` delivered;
+run width 37-52px → 10-12px), make_mask ~4x faster; deliverable 10.87 → 6.60 MB via
+half-resolution normal maps. **DONE Session 4:** Path A research plan (R1-R4) executed — `plan/PATH_A_GRAIN_SPEC.md` delivered;
 `audit/panel_angles.py` fixed (was silently wrong on flat/uniform regions). **DONE Session 3:** 14
 renders + consistent man across cuts, front/side/back views wired, mask hair/shoe/shoulder fixes,
 Path A prototype. **DONE Session 2:** pattern wrap (rejected as global), crease depth (compositor
