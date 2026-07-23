@@ -1,0 +1,101 @@
+FULL-LENGTH STUDIO PHOTOGRAPH — MAN IN A PLAIN MID-GREY SUIT, FRONT VIEW
+
+This is a real studio photograph of a tailored suit, shot as a construction and drape reference for a tailoring house. Its value is in its LIGHT, its DRAPE and its CONSTRUCTION: the way the cloth turns and folds, and the seams, welts, buttonholes and stitching that show how the garment is built. Photograph it as a photograph — soft studio light on real wool, not a flat technical illustration and not a CG render. Nothing may be stylised, cropped for mood, or left implied.
+
+The requirements below are in priority order. Tier 1 is non-negotiable: if you cannot satisfy everything, satisfy Tier 1 and let Tier 3 go.
+
+═══════════════════════════════════════════
+TIER 1 — MUST HAVE. NON-NEGOTIABLE.
+═══════════════════════════════════════════
+
+1. THE NOTCH AND GORGE — RESOLVED IN FULL ON BOTH LAPELS.
+This is the single most important requirement in this prompt and it is the one most often failed.
+The jacket has a notch lapel. The collar and the lapel are two SEPARATE pieces of cloth: the collar comes round the back of the neck, the lapel folds back off the front of the jacket. They are joined by a real stitched GORGE SEAM running diagonally from beside the neck down and outward toward the shoulder. Where the collar point and the lapel point meet, they DO NOT TOUCH — an open, angular, V-shaped gap is cut between the tip of the collar and the tip of the lapel, with air showing through the gap and the shirt or shadow visible behind it. That gap is the NOTCH.
+
+On the wearer's LEFT lapel (camera right) AND on the wearer's RIGHT lapel (camera left), render all five of these, identically and completely:
+ • the gorge seam as an unbroken, crisp diagonal line of stitching
+ • the collar's leaf point, with a sharp corner and its own visible edge
+ • the lapel's point, with a sharp corner and its own visible edge
+ • the open V-shaped notch between those two points, clearly readable, with background visible through it
+ • the lapel roll line running from the notch down to the top button
+
+Both notches: same size, same angle, same height on the chest, mirrored about the centre of the body. The lapel on the slightly less brightly lit side of the figure carries exactly as much resolved construction as the brighter side. Lighting may fall off; the construction may not. Lighting must never be allowed to swallow construction. If in doubt, resolve the gorge more clearly, never less.
+Nothing may cover the gorge: no necktie, no scarf, no lapel pin, no hand, no hair.
+
+2. CONSTRUCTION DETAIL EVERYWHERE, CRISP AND LEGIBLE.
+The garment must visibly be built out of panels of cloth joined by seams, not moulded from one sheet. All of the following must be resolved, sharp and readable, on both sides of the body:
+ • Shoulder seam and the sleevehead seam all the way around each armhole, with a lightly roped sleeve head — a small defined ridge where the sleeve is set in.
+ • The sleeve's own seam and the sleeve's finished cuff edge; four buttons on each cuff with their worked buttonholes.
+ • Front darts and the side-body seams; the front edge of each forepart.
+ • Fine edge stitching running a few millimetres in from the lapel edge, the collar edge and the jacket's front edge, continuous up over the roll, around the notch and down to the hem.
+ • The welt chest pocket: a real slot with a raised welt lip, its own stitched ends, and a slight lift away from the body.
+ • Both lower flap pockets: the flap edge, the shadow line under the flap, the pocket mouth.
+ • Two front buttons — matte horn, tonal, slightly domed, sitting proud of the cloth with their own small shadow — each with a visible worked BUTTONHOLE opposite.
+ • A working boutonniere buttonhole on the wearer's left lapel.
+ • Trousers: waistband seam with its own top edge, fly seam, side seams, a sharply pressed crease down the front of each leg, plain hem, light break over the shoe.
+ • Wool weave texture legible in the cloth at close inspection.
+Keep all of this at true tailoring scale — fine, tight and photographic. Not chunky, not decorative, not exaggerated. Because the light is soft, the seams should read as delicate raised lines and thin shadows — light falling on raised cloth — not as drawn outlines.
+
+3. POSE — LOCKED, SQUARE, SYMMETRICAL.
+Standing upright and dead square to the camera. Weight even on both feet. Feet together, flat on the floor, toes forward. Shoulders level, hips level. Arms hanging straight down at the sides, clear of the jacket and NOT touching it, with a visible gap of background between each arm and the body. Hands relaxed and slightly open, thumbs forward. Head straight, facing the camera, calm neutral expression.
+No hands in pockets. No hand on hip. No crossed arms. No weight on one leg, no cocked hip, no contrapposto, no lean, no twist, no walking. This is a measurement pose and any relaxation of it ruins the image.
+
+4. THE CLOTH — MID-GREY, MATTE, PLAIN, NEUTRAL.
+Plain mid-grey worsted wool, around a 45–50% grey — clearly darker than the background, a little below middle. Matte, no sheen, no lustre. No pattern of any kind: no stripe, check, herringbone, birdseye or weave figure. Perfectly neutral — absolutely no blue, navy, brown, taupe, green or purple cast. Jacket and trousers the identical cloth and identical colour.
+
+5. TONE — NOTHING CLIPPED AT EITHER END.
+ • No blown whites anywhere in the frame. The white shirt and the pocket square sit clearly BELOW paper white and keep visible cloth texture, weave and fold shading. Pull the shirt down until the placket, the collar band and the cuffs each show visible tonal separation from one another. The brightest thing in the frame is the background sweep, NOT the shirt. A shirt with no signal in it reads as a paper cutout and ruins the frame, because it frames the lapels.
+ • No crushed blacks. The deepest folds — under the arms, inside the lapel roll, behind the knee, beneath the pocket flaps, where the trouser breaks on the shoe — all keep visible cloth and separation, as do the black shoes. Nothing goes to solid black.
+ • The suit shows a wide, continuous, readable range of tone from its brightest lit plane to its deepest fold shadow. Soft gradation, no posterisation, no flat dead patches.
+
+6. LIGHTING — GOOD STUDIO LIGHT WITH REAL FORM.
+One very large softbox key, about 2 m tall, placed camera-left at roughly 35 degrees off the lens axis, its centre a little above head height and angled down, feathered so its near edge just skims past the model. A large white bounce fill, camera-right at about 45 degrees, level with the chest. Set the key-to-fill ratio at 2:1 — exactly one stop, not more.
+That one stop is wanted. The camera-right side of the figure will read slightly darker than the camera-left side, and that is correct: it is what gives the chest, sleeves and trouser legs their roundness. Do not erase it and do not flatten the figure with dead-even frontal light — a flat, shadowless suit is a failure. Equally, do not exceed it: no dramatic single source, no hard-edged shadows on the garment, no rim light, no kicker, no specular streak, no coloured light, no lens flare.
+Separately and independently of the light: the construction is resolved at full clarity on both the key side and the fill side. The dimmer side is dimmer; it is not simplified, softened or missing detail. Modelled light, symmetric construction.
+A soft, low, diffuse contact shadow on the floor directly beneath the shoes, fading out evenly. Nothing else on the floor.
+
+7. SHOES BLACK.
+Black leather derby shoes, plain toe, matching pair, lightly polished. Truly black — not brown, not tan, not oxblood, no warm brown tone whatsoever.
+
+8. FINISH — PHOTOGRAPHIC.
+Sharp throughout, natural film-like grain, realistic wool fibre texture at close inspection. 135 mm lens at about 7–8 m, f/9 focused on the chest, everything from collar to shoe critically sharp — no shallow depth of field, no bokeh. Straight out of camera, neutral colour. No illustration look, no CGI plastic sheen, no HDR halos, no heavy contrast grading, no beauty retouching or gloss on the cloth or the skin.
+
+═══════════════════════════════════════════
+TIER 2 — SHOULD HAVE
+═══════════════════════════════════════════
+
+THE GARMENT.
+Single-breasted, TWO-BUTTON jacket, notch lapel of standard width, buttoning point at the natural waist. Welt chest pocket. Straight flap lower pockets, both flaps out and lying flat. Matching flat-front trousers, no pleats, no turn-ups, no belt. Modern tailored fit, natural shoulder, jacket length covering the seat.
+The chest is canvassed with a soft floating chest piece, so the front holds a gentle convex bloom over the chest rather than lying flat. The lapel roll breaks softly from the gorge and rolls down to the top button as a soft crease with its own highlight and shadow, not a hard pressed fold.
+Fit clean but not skin-tight: the cloth should show genuine, believable drape — soft folds at the sleeve inner elbow, a little collapse at the trouser knee and ankle, a gentle break of the jacket over the hip, a light break of the trouser on the shoe. Real cloth behaviour, not shrink-wrap and not sagging.
+
+THE POCKET SQUARE.
+White linen in the welt chest pocket, straight "TV" fold, showing about 1 cm. It must read as a real piece of soft folded linen: a crisp pressed top edge, at least one soft secondary crease across its face, a slightly uneven lower line where it disappears into the pocket, a faint shadow cast into the pocket mouth behind it, and its own gentle tonal gradient. Soft off-white, never paper white, and never a flat uniform bar.
+
+SHIRT AND ACCESSORIES.
+Crisp white cotton shirt, point collar, worn open at the neck with NO NECKTIE, so the gorge and both notches are fully unobstructed. Shirt cuffs showing about 1 cm below each jacket sleeve on BOTH sides, with the cuff edge and the collar's topstitching visible. No belt visible, no watch, no jewellery, no glasses, no hat, no bag, no lapel pin, no flower in the buttonhole.
+
+FRAME, BACKGROUND, OUTPUT.
+Full length, head to sole, nothing cropped. Straight on, camera level at chest height — no tilt, no converging verticals, no wide-angle stretch. Portrait 3:4 aspect ratio, maximum available resolution, at least 1600 pixels wide (for example 1792 × 2400). Figure centred, filling roughly 90% of the frame height with background above the head and below the shoes.
+Seamless near-white studio sweep, set well behind the model and lit separately by two matched heads at equal power so it reads as a flat, even, near-white field: no vignette, no gradient, no hot spot, no visible horizon line where floor meets wall. No props, no furniture, no second person, no text, no watermark, no logo, no border, no reflections.
+
+═══════════════════════════════════════════
+TIER 3 — NICE TO HAVE
+═══════════════════════════════════════════
+
+THE MAN.
+Mid-30s, athletic-slim build, about 183 cm tall. Short dark-brown hair, neatly cut and combed to one side. Clean-shaven. Fair-to-medium skin tone. Calm, neutral expression, looking straight into the lens. Nothing about the face or hair should draw attention away from the garment.
+
+═══════════════════════════════════════════
+THE THREE THINGS THAT DECIDE WHETHER THIS IMAGE IS USABLE
+═══════════════════════════════════════════
+
+FIRST: THE GORGE ON BOTH SIDES. The gorge seam, the collar point, the lapel point and the open V-shaped notch between them must be fully and crisply resolved on BOTH lapels, mirrored and equal, with background visible through each notch. The less-lit side gets exactly the same construction as the brighter side. This is the most common failure and it is fatal.
+
+SECOND: REAL CONSTRUCTION, EVERYWHERE, FINE AND SHARP. Seams, welts, flaps, buttonholes, buttons and edge stitching resolved across the whole garment — jacket and trousers, both sides — at true tailoring scale, reading as light on raised cloth. A smooth garment with no visible construction is a failed image.
+
+THIRD: NOTHING CLIPPED. The shirt and pocket square stay below pure white with visible texture and fold structure; the deepest folds and the black shoes stay above pure black with visible detail.
+
+Generate one image: this man, standing dead square and upright, feet together, arms straight down and clear of the jacket, in a plain neutral mid-grey matte two-button notch-lapel suit and black shoes, full length on a flat near-white seamless sweep, straight-on long lens, soft key plus one stop of fill, 3:4 portrait, maximum resolution.
+
+Most important of all: both lapels show a fully resolved, crisp notch and gorge seam.
