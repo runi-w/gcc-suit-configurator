@@ -656,6 +656,19 @@ const hero=document.getElementById('hero'),hv=hero.getContext('2d');
 // COMPOSITE at full resolution offscreen; PRESENT at display resolution via halving steps.
 // CSS-minifying a full-res canvas shimmer-aliases fine stripes on phones (bilinear at
 // 0.3-0.6x); a mipmap chain into a devicePixelRatio-sized canvas keeps them clean.
+// VIEWPORT ARMOR (2026-07-23): when this page is embedded by a host that controls the <head>
+// (the claude.ai artifact viewer), our viewport meta lands in the body and iOS ignores it —
+// the page lays out at the classic 980px width and Safari squeezes it onto the screen ON TOP
+// of the canvas's own scaling. Two stacked lossy downscales shred fine stripes into moire
+// (user screenshot, 2026-07-23). Injecting the meta from JS works on iOS; and the mobile-crop
+// decision uses the PHYSICAL screen, which no host viewport can lie about.
+(function(){try{
+  if(!document.querySelector('meta[name="viewport"]')||document.querySelector('meta[name="viewport"]').parentElement!==document.head){
+    var mv=document.createElement('meta');mv.name='viewport';
+    mv.content='width=device-width, initial-scale=1, maximum-scale=5';
+    document.head.appendChild(mv);}
+}catch(e){}})();
+const IS_PHONE=(Math.min(screen.width,screen.height)<=500);
 const heroSrc=document.createElement('canvas'),hx=heroSrc.getContext('2d');
 let _mipA=document.createElement('canvas'),_mipB=document.createElement('canvas');
 function presentHero(){if(!W)return;try{
@@ -817,7 +830,7 @@ function buildSeamPhase(alpha,panel){
 function buildPanels(img){const c=document.createElement('canvas');c.width=W;c.height=H;
   const x=c.getContext('2d');x.drawImage(img,0,0,W,H);const d=x.getImageData(0,0,W,H).data;
   const p=new Uint8Array(W*H);for(let i=0;i<W*H;i++)p[i]=d[i*4];return p;}
-function sizeHero(){const st=hero.parentElement;if(!st||!W)return;const sw=Math.max(40,st.clientWidth-6),sh=Math.max(40,st.clientHeight-6);const zen=document.getElementById('app')&&document.getElementById('app').classList.contains('zen');window._mobileCrop=(sw<520&&!zen);const AR=window._mobileCrop?(W*0.60)/(H*0.50):W/H;
+function sizeHero(){const st=hero.parentElement;if(!st||!W)return;const sw=Math.max(40,st.clientWidth-6),sh=Math.max(40,st.clientHeight-6);const zen=document.getElementById('app')&&document.getElementById('app').classList.contains('zen');window._mobileCrop=((sw<520||IS_PHONE)&&!zen);const AR=window._mobileCrop?(W*0.60)/(H*0.50):W/H;
   let h=sh,w=h*AR;if(w>sw){w=sw;h=w/AR;}hero.style.width=Math.round(w)+'px';hero.style.height=Math.round(h)+'px';presentHero();}
 // One cut-view's assets -> cutAssets. Split out of init() so the back views can be added
 // later from a second bundle (see ensureViews) instead of all 15 loading up front.
