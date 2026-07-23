@@ -1,3 +1,14 @@
+        # NO AUTOMATED GORGE CHECK — and that is a deliberate, tested decision, not an omission.
+        # Three metrics were tried against a known-broken render (right gorge entirely missing)
+        # and its retouched twin: total edge energy in the gorge band read 0.89-1.00 on BOTH;
+        # largest-connected-component with a per-side percentile threshold read 0.99 on the
+        # broken one and 0.61 on the FIXED one (backwards); with a shared absolute threshold,
+        # 0.68 vs 0.68 (no signal). Every variant locks onto the lapel's outer edge and the
+        # shoulder line, which are present whether or not the gorge was drawn.
+        # A check that reports PASS on a render with no right gorge is worse than no check, so
+        # there isn't one. The gorge is verified BY EYE — see builder/fix_gorge.py, which writes
+        # a before/after sheet, and crop the collar of any new front render at 3x and look.
+
 #!/usr/bin/env python3
 """Acceptance check for a newly generated house-model render.
 
@@ -29,6 +40,11 @@ CLIP_MAX      = 0.002          # fraction of garment pixels crushed to black
 SHOE_WARMTH   = 12             # mean (R-B) in the shoe region; brown fails, black passes
 
 
+# SYMMETRY thresholds (2026-07-23). Deliberately loose and WARN-only for now — see the note at
+# the checks themselves. Baselines measured across the 15 shipped cut-views.
+LR_LUM_MAX     = 8.0    # max |right - left| garment mean luminance, sRGB levels
+
+
 def analyse(path):
     img = Image.open(path).convert("RGB")
     a = np.asarray(img).astype(np.float32)
@@ -41,6 +57,10 @@ def analyse(path):
 
     out = []
     ok = lambda name, cond, detail: out.append((cond, name, detail))
+
+    def warn(name, good, detail):
+        out.append((True, ("WARN " if not good else "") + name,
+                    detail + ("   <-- LOOK AT THIS" if not good else "")))
 
     ok("resolution", w >= MIN_WIDTH, f"{w}x{h} (min width {MIN_WIDTH})")
     ok("aspect 3:4", abs(w / h - ASPECT) < ASPECT_TOL, f"{w/h:.4f} vs {ASPECT:.4f}")
@@ -87,6 +107,24 @@ def analyse(path):
     warmth = float((R[sh] - B[sh]).mean()) if sh.sum() > 500 else 0.0
     ok("shoes are black, not brown", sh.sum() < 500 or warmth < SHOE_WARMTH,
        f"{sh.sum():,} warm px, mean R-B {warmth:.1f} (max {SHOE_WARMTH})")
+
+    # ---- SYMMETRY (added 2026-07-23) --------------------------------------------------------
+    # These exist because the generator shipped a defect through ten straight generations and not
+    # one of the checks above could see it: it invented a key light from screen-right (+20.6 to
+    # +24.4 sRGB levels on every front) and then never drew the lapel's gorge cut on that side
+    # (a 535 px connected seam on the left against 203 px of scatter on the right). A garment is
+    # very nearly left/right symmetric; nothing above tested that.
+    #
+    # Shipped as WARN, not FAIL: every existing render fails a naive symmetry bar because the
+    # bias is universal, and the pocket square + the left-over-right front overlap are REAL
+    # asymmetries. Tighten to a hard gate once a clean generation sets a baseline.
+    gl = g[:, : w // 2]
+    gr = g[:, w // 2:]
+    if gl.sum() > 1000 and gr.sum() > 1000:
+        dl = float(lum[:, : w // 2][gl].mean())   # lum is already 0..255
+        dr = float(lum[:, w // 2:][gr].mean())
+        warn("garment lighting is left/right balanced", abs(dr - dl) <= LR_LUM_MAX,
+             f"right minus left = {dr - dl:+.1f} levels (max {LR_LUM_MAX})")
 
     return img, out
 

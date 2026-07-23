@@ -39,10 +39,44 @@ def make_drape(render_img, mask_img):
     med = np.median(lum[m])
     if med < 1:
         raise ValueError("garment median luminance is ~0; wrong mask?")
+    lum, bias = _debias_lr(lum, m)
     L = np.clip(lum * (TARGET_MEDIAN / med), 0, 255).astype("uint8")
     out = Image.merge("LA", [Image.fromarray(L), Image.fromarray(mask.astype("uint8"))])
     return out, dict(coverage=float(m.mean()), median_before=float(med),
-                     gain=float(TARGET_MEDIAN / med))
+                     gain=float(TARGET_MEDIAN / med), lr_bias=bias)
+
+
+# LEFT/RIGHT LIGHTING DEBIAS (2026-07-23)
+# The image generator invented a key light from screen-right: every front render measures +20.6
+# to +24.4 sRGB levels brighter on the right half (backs +12.3 to +13.9). This single global gain
+# then carried that straight into the drape's L channel — lapel-L 124.0 against lapel-R 171.7 —
+# so every one of the 17 cloths rendered +12 to +16 levels brighter on the right lapel.
+#
+# Remove only the LOWEST-ORDER horizontal term. This is deliberately NOT a flatten: the
+# asymmetric key is also what models the figure, and killing it entirely would leave the garment
+# looking like a cutout. A single linear ramp fitted across the garment takes out the systematic
+# side-to-side bias and leaves every fold, crease and the broad body shading untouched.
+DEBIAS = 1.0        # 0 = off (the pre-2026-07-23 behaviour), 1 = remove the full linear term
+
+
+def _debias_lr(lum, m):
+    """Divide out a linear horizontal luminance ramp fitted inside the garment mask."""
+    if DEBIAS <= 0:
+        return lum, 0.0
+    h, w = lum.shape
+    ys, xs = np.nonzero(m)
+    v = lum[ys, xs]
+    xn = (xs - xs.mean()) / max(xs.std(), 1e-6)
+    # least squares v ~ a + b*xn ; b is the side-to-side bias in levels per sd of x
+    b = float(np.polyfit(xn, v, 1)[0])
+    mean = float(v.mean())
+    if mean < 1:
+        return lum, 0.0
+    xg = (np.arange(w)[None, :] - xs.mean()) / max(xs.std(), 1e-6)
+    # multiplicative, so black stays black and structural creases keep their depth — the same
+    # reasoning as the exposure gain above
+    corr = 1.0 / np.maximum(1.0 + DEBIAS * b * xg / mean, 0.35)
+    return lum * corr, b
 
 
 def verify(cut):
