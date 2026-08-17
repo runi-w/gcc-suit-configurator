@@ -669,6 +669,41 @@ const hero=document.getElementById('hero'),hv=hero.getContext('2d');
     document.head.appendChild(mv);}
 }catch(e){}})();
 const IS_PHONE=(Math.min(screen.width,screen.height)<=500);
+// DIAGNOSTICS (2026-07-23). A night of mobile bugs was undebuggable because the page could not
+// say what it was experiencing. A small build stamp is always visible; tapping it 3x (or adding
+// ?debug=1) opens a live overlay: layout vs physical viewport (exposes the iOS 980px classic
+// viewport instantly), dpr, canvas sizes, crop state, boot progress, and the last JS error.
+// One screenshot of that overlay replaces an hour of guessing.
+const BUILD_STAMP='__BUILD_STAMP__';
+window.__lastErr='';addEventListener('error',e=>{window.__lastErr=e.message;});
+addEventListener('unhandledrejection',e=>{window.__lastErr=String(e.reason&&e.reason.message||e.reason);});
+(function(){
+  const st=document.createElement('div');
+  st.style.cssText='position:fixed;right:4px;bottom:3px;z-index:99999;font:9px/1 monospace;color:#999;opacity:.7;padding:2px 4px;user-select:none';
+  st.textContent=BUILD_STAMP;document.addEventListener('DOMContentLoaded',()=>document.body.appendChild(st));
+  let taps=0,tt=null,dbg=null;
+  function overlay(){
+    if(dbg){dbg.remove();dbg=null;return;}
+    dbg=document.createElement('div');
+    dbg.style.cssText='position:fixed;left:8px;top:8px;z-index:99999;font:11px/1.5 monospace;color:#0f0;background:rgba(0,0,0,.85);padding:8px 10px;border-radius:4px;white-space:pre;max-width:92vw';
+    document.body.appendChild(dbg);
+    (function upd(){if(!dbg)return;
+      const vv=window.visualViewport;
+      dbg.textContent=['build '+BUILD_STAMP,
+       'layout vp  '+innerWidth+'x'+innerHeight,
+       'screen     '+screen.width+'x'+screen.height+' @dpr '+devicePixelRatio,
+       'vv scale   '+(vv?vv.scale.toFixed(2):'n/a'),
+       'hero css   '+hero.style.width+' x '+hero.style.height,
+       'hero px    '+hero.width+'x'+hero.height,
+       'crop       '+window._mobileCrop+'  IS_PHONE '+IS_PHONE,
+       'cuts       '+(typeof cutAssets!=='undefined'?Object.keys(cutAssets).length:'?')+'  fabrics '+(typeof pat!=='undefined'?Object.keys(pat).length:'?'),
+       'fabric     '+(typeof state!=='undefined'?state.fabric:'?'),
+       'lastErr    '+(window.__lastErr||'none')].join('\n');
+      setTimeout(upd,700);})();
+  }
+  st.addEventListener('click',()=>{taps++;clearTimeout(tt);tt=setTimeout(()=>taps=0,900);if(taps>=3){taps=0;overlay();}});
+  if(location.search.indexOf('debug=1')>=0)document.addEventListener('DOMContentLoaded',overlay);
+})();
 const heroSrc=document.createElement('canvas'),hx=heroSrc.getContext('2d');
 let _mipA=document.createElement('canvas'),_mipB=document.createElement('canvas');
 function presentHero(){if(!W)return;try{
@@ -1221,6 +1256,7 @@ html = (HTML.replace("__CUTVIEWS__", json.dumps(cutviews))
             .replace("__SIL_WRAP__", f"{SIL_WRAP:.2f}")
             .replace("__PANEL_ANG__", json.dumps(PANEL_ANGLES))
             .replace("__PANEL_CYL__", json.dumps([PANEL_CYL.get(i) for i in range(N_PANELS)]))
+            .replace("__BUILD_STAMP__", __import__("subprocess").run(["git","rev-parse","--short","HEAD"],capture_output=True,text=True).stdout.strip() or "dev")
             .replace("__UNWRAP_AMP__", f"{UNWRAP_AMP:.2f}")
             .replace("__NZ_FLOOR__", f"{NZ_FLOOR:.3f}")
             .replace("__STAGE__", "#%02x%02x%02x" % STAGE_RGB)
@@ -1245,9 +1281,11 @@ def _fill(s, cuts_json):
              .replace("__SIL_WRAP__", f"{SIL_WRAP:.2f}")
              .replace("__PANEL_ANG__", json.dumps(PANEL_ANGLES))
              .replace("__PANEL_CYL__", json.dumps([PANEL_CYL.get(i) for i in range(N_PANELS)]))
+            .replace("__BUILD_STAMP__", __import__("subprocess").run(["git","rev-parse","--short","HEAD"],capture_output=True,text=True).stdout.strip() or "dev")
              .replace("__UNWRAP_AMP__", f"{UNWRAP_AMP:.2f}")
              .replace("__NZ_FLOOR__", f"{NZ_FLOOR:.3f}")
             .replace("__PANEL_CYL__", json.dumps([PANEL_CYL.get(i) for i in range(N_PANELS)]))
+            .replace("__BUILD_STAMP__", __import__("subprocess").run(["git","rev-parse","--short","HEAD"],capture_output=True,text=True).stdout.strip() or "dev")
             .replace("__UNWRAP_AMP__", f"{UNWRAP_AMP:.2f}")
             .replace("__NZ_FLOOR__", f"{NZ_FLOOR:.3f}")
              .replace("__STAGE__", "#%02x%02x%02x" % STAGE_RGB)
